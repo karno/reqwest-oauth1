@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 
-use crate::{Secrets, SecretsProvider};
+use crate::SecretsProvider;
 use http::Method;
-use oauth1_request::{signature_method::SignatureMethod, HmacSha1};
-use oauth1_request::{signer::Signer as OAuthSigner, Options};
-use reqwest::Url;
+use oauth1_request::signature_method::SignatureMethod;
+use oauth1_request::signer::Signer as OAuthSigner;
+use oauth1_request::{HmacSha1, Options};
+use url::Url;
 
 const OAUTH_IDENTIFIER: &str = "oauth_";
 const REALM_IDENTIFIER: &str = "realm";
@@ -17,36 +18,6 @@ where
 {
     secrets: &'a TSecretsProvider,
     parameters: OAuthParameters<'a, TSignatureMethod>,
-}
-
-// utility method
-impl Signer<'_, Secrets<'_, ()>, HmacSha1> {
-    fn prepare_signer<T: SignatureMethod>(
-        signature_method: T,
-        consumer_secret: &str,
-        token_secret: Option<&str>,
-        method: Method,
-        url: Url,
-        is_url_query: bool,
-    ) -> OAuthSigner<T> {
-        if is_url_query {
-            OAuthSigner::with_signature_method(
-                signature_method,
-                method.as_str(),
-                url,
-                consumer_secret,
-                token_secret,
-            )
-        } else {
-            OAuthSigner::form_with_signature_method(
-                signature_method,
-                method.as_str(),
-                url,
-                consumer_secret,
-                token_secret,
-            )
-        }
-    }
 }
 
 impl<'a, TSecretsProvider, TSignatureMethod> Signer<'a, TSecretsProvider, TSignatureMethod>
@@ -85,43 +56,56 @@ where
         let mut sorted_query = [parsed_payload, oauth_identifier].concat();
         sorted_query.sort();
 
-        let mut splited = sorted_query
+        // divide key-value items by the element has "oauth_" key
+        let mut divided = sorted_query
             .splitn(2, |(k, _)| k == &OAUTH_IDENTIFIER)
             .into_iter();
-        // split by "oauth_" key
-        let query_before_oauth = splited.next().unwrap();
-        let query_after_oauth = splited.next().unwrap_or_default();
+        let query_before_oauth = divided.next().unwrap();
+        let query_after_oauth = divided.next().unwrap_or_default();
 
-        // generate sign
-        let mut signer = Signer::prepare_signer(
-            self.parameters.signature_method.clone(),
-            consumer_secret,
-            token_secret,
-            method,
-            url,
-            is_url_query,
-        );
-        // key [a ~ oauth_)
+        // generate signature
+        // Step 0. instantiate sign generator
+        let sig_method = self.parameters.signature_method.clone();
+        let mut signer = if is_url_query {
+            OAuthSigner::with_signature_method(
+                sig_method,
+                method.as_str(),
+                url,
+                consumer_secret,
+                token_secret,
+            )
+        } else {
+            OAuthSigner::form_with_signature_method(
+                sig_method,
+                method.as_str(),
+                url,
+                consumer_secret,
+                token_secret,
+            )
+        };
+
+        // Step 1. key [a ~ oauth_)
         for (key, value) in query_before_oauth {
-            if key != &OAUTH_IDENTIFIER {
-                // not an oauth_ parameter
+            if !key.starts_with(OAUTH_IDENTIFIER) {
+                // not an oauth_* parameter
                 signer.parameter(key, value);
             }
         }
+        // Step 2. add oauth_* parameters
         let mut signer = signer.oauth_parameters(consumer_key, &options);
-        // key (oauth_ ~ z]
+        // Step 3. key (oauth_ ~ z]
         for (key, value) in query_after_oauth {
-            if key != &OAUTH_IDENTIFIER {
-                // not an oauth_ parameter
+            if !key.starts_with(OAUTH_IDENTIFIER) {
+                // not an oauth_* parameter
                 signer.parameter(key, value);
             }
         }
-        // let sign = signer.finish().authorization;
-        let auth = signer.finish();
-        let sign = auth.authorization;
+
+        // signature is generated.
+        let sign = signer.finish().authorization;
 
         if let Some(realm) = self.parameters.realm {
-            // OAuth oauth_... realm=
+            // OAuth oauth_...,realm="realm"
             format!("{},{}=\"{}\"", sign, REALM_IDENTIFIER, realm.as_ref())
         } else {
             // OAuth oauth_...
