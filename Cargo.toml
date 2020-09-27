@@ -7,9 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = "0.10.8"
-oauth1-request = "0.3.2"
 http = "0.2.1"
-serde_urlencoded = "0.6.0"
+oauth1-request = "0.3.2"
+reqwest = "0.10.8"
 serde = "1.0.116"
+serde_urlencoded = "0.6.0"
 url = "2.1.1"
+
+[dev-dependencies]
+percent-encoding = "2.1.0"
