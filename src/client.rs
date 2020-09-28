@@ -11,6 +11,7 @@ use crate::{OAuthParameters, SecretsProvider, Signer};
 
 use super::request::RequestBuilder;
 
+/// Bridge trait from reqwest's `Client` from our `Client`.
 pub trait OAuthClientProvider {
     fn oauth1<'a, T>(self, secrets: &'a T) -> Client<Signer<'a, T, DefaultSignatureMethod>>
     where
@@ -31,6 +32,7 @@ pub trait OAuthClientProvider {
         TSignatureMethod: SignatureMethod + Clone;
 }
 
+/// Compatible interface with reqwest's [`Client`](https://docs.rs/reqwest/0.10.8/reqwest/struct.Client.html).
 #[derive(Debug)]
 pub struct Client<TSigner> {
     inner: ReqwestClient,

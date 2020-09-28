@@ -10,6 +10,17 @@ use url::Url;
 const OAUTH_IDENTIFIER: &str = "oauth_";
 const REALM_IDENTIFIER: &str = "realm";
 
+/**
+Provides OAuth signature with [oauth1-request](https://crates.io/crates/oauth1-request).
+
+# Note
+
+This struct is intended for internal use.
+
+You may consider use the struct provided from oauth1-request crate directly
+instead of this struct.
+
+*/
 #[derive(Debug, Clone)]
 pub struct Signer<'a, TSecretsProvider, TSignatureMethod>
 where
@@ -35,7 +46,8 @@ where
         }
     }
 
-    pub fn generate_signature(
+    /// Generate OAuth signature with specified parameters.
+    pub(crate) fn generate_signature(
         self,
         method: Method,
         url: Url,
@@ -114,6 +126,50 @@ where
     }
 }
 
+/**
+Represents OAuth parameters including oauth_nonce, oauth_timestamp, realm, and others.
+
+# Basic usage
+
+```rust
+let consumer_key = "[CONSUMER_KEY]";
+let consumer_secret = "[CONSUMER_SECRET]";
+let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret);
+
+let nonce = "[NONCE]";
+let timestamp = 100_000_001u64;
+let callback = "http://example.com/ready";
+
+let params = OAuthParameters::new()
+    .nonce(nonce)
+    .timestamp(timestamp)
+    .callback(callback);
+
+let req = reqwest::Client::new()
+    .oauth1_with_params(&secrets, params)
+    .post(endpoint)
+    ...
+```
+
+# Note
+
+If you want to add `realm` parameter in your request, you must pass it
+by OAuthParameter. Otherwise, you will get the wrong signature.
+
+```rust
+let realm = "Realm";
+let params = OAuthParameters::new()
+    .realm(realm);
+
+let req = reqwest::Client::new()
+    .oauth1_with_params(&secrets, params)
+    .post(endpoint)
+    // YOU CAN'T DO THIS!
+    // .form(&[("realm", realm)])
+    ...
+```
+
+*/
 #[derive(Debug, Clone)]
 pub struct OAuthParameters<'a, TSignatureMethod>
 where
@@ -147,6 +203,7 @@ impl<'a> OAuthParameters<'a, HmacSha1> {
         Default::default()
     }
 
+    /// set the oauth_callback value
     pub fn callback<T>(self, callback: T) -> Self
     where
         T: Into<Cow<'a, str>>,
@@ -168,7 +225,11 @@ impl<'a> OAuthParameters<'a, HmacSha1> {
         }
     }
 
-    /// set the oauth_realm value
+    /// set the realm value
+    ///
+    /// # Note
+    /// this parameter will not be included in the signature-base string.
+    /// cf. https://tools.ietf.org/html/rfc5849#section-3.4.1.3.1
     pub fn realm<T>(self, realm: T) -> Self
     where
         T: Into<Cow<'a, str>>,

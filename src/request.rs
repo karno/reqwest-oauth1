@@ -16,6 +16,7 @@ use serde::Serialize;
 
 use crate::{OAuthParameters, SecretsProvider, Signer};
 
+/// Compatible interface with reqwest's [`RequestBuilder`](https://docs.rs/reqwest/0.10.8/reqwest/struct.RequestBuilder.html).
 pub struct RequestBuilder<TSigner>
 where
     TSigner: Clone,
