@@ -1,12 +1,12 @@
 # reqwest-oauth1: reqwest ♡ oauth1-request
 
-Add feature of OAuth1 request to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
+Add feature of OAuth1-signing to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
 
 This library provides partial compatible interface of reqwest.
 
 You can use this almost same as reqwest, and signing with OAuth1 authorization protocol.
 
-    Note: this crate is currently supporting the asynchronous Client (reqwest::Client) only.
+> Note: this crate is currently supporting the asynchronous Client (reqwest::Client) only.
 
 ## Installation
 
