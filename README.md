@@ -1,11 +1,12 @@
-# reqwest-oauth1: reqwest 💛 oauth1-request
+# reqwest-oauth1: reqwest ♡ oauth1-request
 
 Add feature of OAuth1 request to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
 
 This library provides partial compatible interface of reqwest.
 
-You can use almost same as reqwest, and signing with OAuth1 
-authorization protocol.
+You can use this almost same as reqwest, and signing with OAuth1 authorization protocol.
+
+    Note: this crate is currently supporting the asynchronous Client (reqwest::Client) only.
 
 ## Installation
 
@@ -132,9 +133,22 @@ When you calling `oauth1` method in `Client`, or `sign` method in `RequestBuilde
 
 ## License
 
-This library is distributed under the MIT License. 
-See [LICENSE.txt](./LICENSE.txt) for further information.
+Licensed under either of
 
-This library contains derived artifacts from seanmonster's `reqwest`.
+* Apache License, Version 2.0
+([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license
+([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+
+Note: This library contains derived artifacts from seanmonster's [`reqwest`](https://crates.io/crates/reqwest).
 It is distributed under the either of MIT License or Apache License.
-See [LICENSE_REQWEST_MIT.txt](./LICENSE_REQUEST_MIT.txt) and [LICENSE_REQWEST_APACHE.txt](./LICENSE_REQUEST_APACHE.txt).
+See [LICENSE-REQWEST-MIT](./LICENSE-REQUEST-MIT) and [LICENSE-REQWEST-APACHE](./LICENSE-REQUEST-APACHE) for further information.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
