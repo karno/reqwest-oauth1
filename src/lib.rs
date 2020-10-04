@@ -23,7 +23,7 @@ let consumer_secret = "[CONSUMER_SECRET]";
 let access_token = "[ACCESS_TOKEN]";
 let token_secret = "[TOKEN_SECRET]";
 
-let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret)
+let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret)
   .token(access_token, token_secret);
 
 // sample: send new tweet to twitter
@@ -52,7 +52,7 @@ use reqwest;
 let consumer_key = "[CONSUMER_KEY]";
 let consumer_secret = "[CONSUMER_SECRET]";
 
-let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret);
+let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret);
 
 // sample: request access token to twitter
 
@@ -60,50 +60,72 @@ let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret);
 let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
 let client = reqwest::Client::new();
-let req_token, req_secret = client
+let resp = client
     .oauth1(secrets)
     .get(endpoint_reqtoken)
-    .query(&["oauth_callback", "oob"])
-    .send()?
-    .parse_oauth_token()?;
+    .query(&[("oauth_callback", "oob")])
+    .send()
+    .parse_oauth_token()
+    .await?;
 
 // step 2. acquire user pin
-let req_secrets = secrets.token(req_token, req_secret);
-let endpoint_authorize = "https://api.twitter.com/oauth/authorize?oauth_token={}";
+let endpoint_authorize = "https://api.twitter.com/oauth/authorize?oauth_token=";
+println!("please access to: {}{}", endpoint_authorize, resp.oauth_token);
 
-println!("open {} in your browser.",
-    format!(endpoint_authorize,
-        req_secrets.token)
-    ));
 println!("input pin: ");
 let mut user_input = String::new();
-io::stdin().read_line(&user_input)?;
+io::stdin().read_line(&mut user_input)?;
 let pin = user_input.trim();
 
 // step 3. acquire access token
+let secrets = Secrets::new(consumer_key, consumer_secret)
+        .token(resp.oauth_token, resp.oauth_token_secret);
 let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
 let client = reqwest::Client::new();
-let access_token, token_secret = client
+let resp = client
     .oauth1(secrets)
     .get(endpoint_acctoken)
-    .query(&["oauth_verifier", pin])
-    .send()?
-    .parse_oauth_token()?;
-println!("your token and secret is: \n token: {}\n secret: {}",
-    &access_token,
-    &token_secret);
+    .query(&[("oauth_verifier", pin)])
+    .send()
+    .parse_oauth_token()
+    .await?;
+println!(
+    "your token and secret is: \n token: {}\n secret: {}",
+    resp.oauth_token, resp.oauth_token_secret
+);
+println!("other attributes: {:#?}", resp.remain)
 ```
 
 
 */
 mod client;
+mod error;
 mod request;
 mod secrets;
 mod signer;
+mod token_reader;
+#[cfg(test)]
+// mod usage_test;
 
 // exposed to external program
 pub use client::*;
+pub use error::*;
 pub use request::*;
 pub use secrets::*;
 pub use signer::*;
+pub use token_reader::*;
+
+// exposed constant variables
+pub const OAUTH_CALLBACK_KEY: &str = "oauth_callback";
+pub const OAUTH_NONCE_KEY: &str = "oauth_nonce";
+pub const OAUTH_TIMESTAMP_KEY: &str = "oauth_timestamp";
+pub const OAUTH_VERIFIER_KEY: &str = "oauth_verifier";
+pub const OAUTH_VERSION_KEY: &str = "oauth_version";
+pub const REALM_KEY: &str = "realm";
+
+// crate-private constant variables
+pub(crate) const OAUTH_KEY_PREFIX: &str = "oauth_";
+pub(crate) const OAUTH_SIGNATURE_METHOD_KEY: &str = "oauth_signature_method";
+pub(crate) const OAUTH_CONSUMER_KEY: &str = "oauth_consumer_key";
+pub(crate) const OAUTH_TOKEN_KEY: &str = "oauth_token";

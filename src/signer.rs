@@ -1,14 +1,16 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
-use crate::SecretsProvider;
+use crate::{SecretsProvider, SignError, SignResult};
+use crate::{
+    OAUTH_CALLBACK_KEY, OAUTH_CONSUMER_KEY, OAUTH_KEY_PREFIX, OAUTH_NONCE_KEY,
+    OAUTH_SIGNATURE_METHOD_KEY, OAUTH_TIMESTAMP_KEY, OAUTH_TOKEN_KEY, OAUTH_VERIFIER_KEY,
+    OAUTH_VERSION_KEY, REALM_KEY,
+};
 use http::Method;
 use oauth1_request::signature_method::SignatureMethod;
 use oauth1_request::signer::Signer as OAuthSigner;
 use oauth1_request::{HmacSha1, Options};
 use url::Url;
-
-const OAUTH_IDENTIFIER: &str = "oauth_";
-const REALM_IDENTIFIER: &str = "realm";
 
 /**
 Provides OAuth signature with [oauth1-request](https://crates.io/crates/oauth1-request).
@@ -22,28 +24,57 @@ instead of this struct.
 
 */
 #[derive(Debug, Clone)]
-pub struct Signer<'a, TSecretsProvider, TSignatureMethod>
+pub struct Signer<'a, TSecrets, TSM>
 where
-    TSecretsProvider: SecretsProvider,
-    TSignatureMethod: SignatureMethod + Clone,
+    TSecrets: SecretsProvider + Clone,
+    TSM: SignatureMethod + Clone,
 {
-    secrets: &'a TSecretsProvider,
-    parameters: OAuthParameters<'a, TSignatureMethod>,
+    secrets: TSecrets,
+    parameters: Result<OAuthParameters<'a, TSM>, SignError>,
 }
 
-impl<'a, TSecretsProvider, TSignatureMethod> Signer<'a, TSecretsProvider, TSignatureMethod>
+impl<'a, TSecretsProvider, TSM> Signer<'a, TSecretsProvider, TSM>
 where
-    TSecretsProvider: SecretsProvider,
-    TSignatureMethod: SignatureMethod + Clone,
+    TSecretsProvider: SecretsProvider + Clone,
+    TSM: SignatureMethod + Clone,
 {
-    pub fn new(
-        secrets: &'a TSecretsProvider,
-        parameters: OAuthParameters<'a, TSignatureMethod>,
-    ) -> Self {
+    pub fn new(secrets: TSecretsProvider, parameters: OAuthParameters<'a, TSM>) -> Self {
         Signer {
             secrets,
-            parameters,
+            parameters: Ok(parameters),
         }
+    }
+
+    pub fn override_oauth_parameter(mut self, parameters: HashMap<String, String>) -> Self {
+        for (key, value) in parameters {
+            self.parameters = match self.parameters {
+                Ok(p) => match key.as_str() {
+                    // always success
+                    OAUTH_CALLBACK_KEY => Ok(p.callback(value)),
+                    OAUTH_NONCE_KEY => Ok(p.nonce(value)),
+                    OAUTH_VERIFIER_KEY => Ok(p.verifier(value)),
+                    REALM_KEY => Ok(p.realm(value)),
+                    // potential to fail
+                    OAUTH_TIMESTAMP_KEY => match value.parse::<u64>() {
+                        Ok(v) => Ok(p.timestamp(v)),
+                        Err(_) => Err(SignError::InvalidTimestamp(value)),
+                    },
+                    OAUTH_VERSION_KEY => match value.as_str() {
+                        "1.0" => Ok(p.version(true)),
+                        "" => Ok(p.version(false)),
+                        _ => Err(SignError::InvalidVersion(value)),
+                    },
+                    // always fail
+                    OAUTH_SIGNATURE_METHOD_KEY | OAUTH_CONSUMER_KEY | OAUTH_TOKEN_KEY => {
+                        Err(SignError::UnconfigurableParameter(key))
+                    }
+                    _ => Err(SignError::UnknownParameter(key)),
+                },
+                Err(e) => Err(e),
+            };
+        }
+
+        self
     }
 
     /// Generate OAuth signature with specified parameters.
@@ -53,52 +84,48 @@ where
         url: Url,
         payload: &str,
         is_url_query: bool,
-    ) -> String {
+    ) -> SignResult<String> {
         let (consumer_key, consumer_secret) = self.secrets.get_consumer_key_pair();
         let (token, token_secret) = self.secrets.get_token_option_pair();
         // build oauth option
-        let options = self.parameters.build_options(token);
+        let params = self.parameters?;
+        let options = params.build_options(token);
 
         // destructure query and sort by alphabetical order
         let parsed_payload: Vec<(Cow<str>, Cow<str>)> =
             url::form_urlencoded::parse(payload.as_bytes())
                 .into_iter()
                 .collect();
-        let oauth_identifier = vec![(Cow::from(OAUTH_IDENTIFIER), Cow::from(""))];
+        // add `oauth_` key to identify where to divide
+        let oauth_identifier = vec![(Cow::from(OAUTH_KEY_PREFIX), Cow::from(""))];
         let mut sorted_query = [parsed_payload, oauth_identifier].concat();
+
+        // then, sort by alphabetical order (that is required by OAuth specification)
         sorted_query.sort();
 
         // divide key-value items by the element has "oauth_" key
         let mut divided = sorted_query
-            .splitn(2, |(k, _)| k == &OAUTH_IDENTIFIER)
+            .splitn(2, |(k, _)| k == &OAUTH_KEY_PREFIX)
             .into_iter();
         let query_before_oauth = divided.next().unwrap();
         let query_after_oauth = divided.next().unwrap_or_default();
 
         // generate signature
         // Step 0. instantiate sign generator
-        let sig_method = self.parameters.signature_method.clone();
-        let mut signer = if is_url_query {
-            OAuthSigner::with_signature_method(
-                sig_method,
-                method.as_str(),
-                url,
-                consumer_secret,
-                token_secret,
-            )
-        } else {
-            OAuthSigner::form_with_signature_method(
-                sig_method,
-                method.as_str(),
-                url,
-                consumer_secret,
-                token_secret,
-            )
-        };
+        let sig_method = params.signature_method.clone();
+        println!("signing url: {:#?}", url);
+        let mut signer = generate_signer(
+            sig_method,
+            method.as_str(),
+            url,
+            consumer_secret,
+            token_secret,
+            is_url_query,
+        );
 
         // Step 1. key [a ~ oauth_)
         for (key, value) in query_before_oauth {
-            if !key.starts_with(OAUTH_IDENTIFIER) {
+            if !key.starts_with(OAUTH_KEY_PREFIX) {
                 // not an oauth_* parameter
                 signer.parameter(key, value);
             }
@@ -107,7 +134,7 @@ where
         let mut signer = signer.oauth_parameters(consumer_key, &options);
         // Step 3. key (oauth_ ~ z]
         for (key, value) in query_after_oauth {
-            if !key.starts_with(OAUTH_IDENTIFIER) {
+            if !key.starts_with(OAUTH_KEY_PREFIX) {
                 // not an oauth_* parameter
                 signer.parameter(key, value);
             }
@@ -116,13 +143,43 @@ where
         // signature is generated.
         let sign = signer.finish().authorization;
 
-        if let Some(realm) = self.parameters.realm {
+        if let Some(realm) = params.realm {
             // OAuth oauth_...,realm="realm"
-            format!("{},{}=\"{}\"", sign, REALM_IDENTIFIER, realm.as_ref())
+            Ok(format!("{},{}=\"{}\"", sign, REALM_KEY, realm.as_ref()))
         } else {
             // OAuth oauth_...
-            sign
+            Ok(sign)
         }
+    }
+}
+
+fn generate_signer<TSM>(
+    signature_method: TSM,
+    method: &str,
+    url: Url,
+    consumer_secret: &str,
+    token_secret: Option<&str>,
+    is_url_query: bool,
+) -> OAuthSigner<TSM>
+where
+    TSM: SignatureMethod,
+{
+    if is_url_query {
+        OAuthSigner::with_signature_method(
+            signature_method,
+            method,
+            url,
+            consumer_secret,
+            token_secret,
+        )
+    } else {
+        OAuthSigner::form_with_signature_method(
+            signature_method,
+            method,
+            url,
+            consumer_secret,
+            token_secret,
+        )
     }
 }
 
@@ -171,14 +228,14 @@ let req = reqwest::Client::new()
 
 */
 #[derive(Debug, Clone)]
-pub struct OAuthParameters<'a, TSignatureMethod>
+pub struct OAuthParameters<'a, TSM>
 where
-    TSignatureMethod: SignatureMethod + Clone,
+    TSM: SignatureMethod + Clone,
 {
     callback: Option<Cow<'a, str>>,
     nonce: Option<Cow<'a, str>>,
     realm: Option<Cow<'a, str>>,
-    signature_method: TSignatureMethod,
+    signature_method: TSM,
     timestamp: Option<u64>,
     verifier: Option<Cow<'a, str>>,
     version: bool,
@@ -198,11 +255,16 @@ impl Default for OAuthParameters<'static, HmacSha1> {
     }
 }
 
-impl<'a> OAuthParameters<'a, HmacSha1> {
+impl OAuthParameters<'_, HmacSha1> {
     pub fn new() -> Self {
         Default::default()
     }
+}
 
+impl<'a, TSM> OAuthParameters<'a, TSM>
+where
+    TSM: SignatureMethod + Clone,
+{
     /// set the oauth_callback value
     pub fn callback<T>(self, callback: T) -> Self
     where
@@ -277,18 +339,9 @@ impl<'a> OAuthParameters<'a, HmacSha1> {
             ..self
         }
     }
-}
-
-impl<'a, T> OAuthParameters<'a, T>
-where
-    T: SignatureMethod + Clone,
-{
-    pub fn signature_method<TSignatureMethod>(
-        self,
-        signature_method: TSignatureMethod,
-    ) -> OAuthParameters<'a, TSignatureMethod>
+    pub fn signature_method<T>(self, signature_method: T) -> OAuthParameters<'a, T>
     where
-        TSignatureMethod: SignatureMethod + Clone,
+        T: SignatureMethod + Clone,
     {
         OAuthParameters {
             signature_method,
@@ -302,11 +355,11 @@ where
     }
 }
 
-impl<'a, T> OAuthParameters<'a, T>
+impl<T> OAuthParameters<'_, T>
 where
     T: SignatureMethod + Clone,
 {
-    fn build_options(&'a self, token: Option<&'a str>) -> Options<'a> {
+    fn build_options<'a>(&'a self, token: Option<&'a str>) -> Options<'a> {
         let mut opt = Options::new();
 
         // NOTE: items must be added by alphabetical order

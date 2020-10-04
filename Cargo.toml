@@ -13,6 +13,9 @@ reqwest = "0.10.8"
 serde = "1.0.116"
 serde_urlencoded = "0.6.0"
 url = "2.1.1"
+async-trait = "0.1.40"
+thiserror = "1.0.20"
 
 [dev-dependencies]
 percent-encoding = "2.1.0"
+tokio = { version = "0.2.22", features=["full"] }

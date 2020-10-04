@@ -3,7 +3,8 @@
 // for further information(including license information),
 // please visit their repository: https://github.com/seanmonstar/reqwest .
 // ----------------------------------------------------------------------------
-use oauth1_request::signature_method::HmacSha1 as DefaultSignatureMethod;
+
+use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
 use reqwest::{Client as ReqwestClient, IntoUrl, Method};
 
@@ -13,23 +14,23 @@ use super::request::RequestBuilder;
 
 /// Bridge trait from reqwest's `Client` from our `Client`.
 pub trait OAuthClientProvider {
-    fn oauth1<'a, T>(self, secrets: &'a T) -> Client<Signer<'a, T, DefaultSignatureMethod>>
+    fn oauth1<'a, T>(self, secrets: T) -> Client<Signer<'a, T, DefaultSM>>
     where
         Self: Sized,
-        T: SecretsProvider,
+        T: SecretsProvider + Clone,
     {
         self.oauth1_with_params(secrets, OAuthParameters::new())
     }
 
-    fn oauth1_with_params<'a, TSecrets, TSignatureMethod>(
+    fn oauth1_with_params<'a, TSecrets, TSM>(
         self,
-        secrets: &'a TSecrets,
-        params: OAuthParameters<'a, TSignatureMethod>,
-    ) -> Client<Signer<'a, TSecrets, TSignatureMethod>>
+        secrets: TSecrets,
+        params: OAuthParameters<'a, TSM>,
+    ) -> Client<Signer<'a, TSecrets, TSM>>
     where
         Self: Sized,
-        TSecrets: SecretsProvider,
-        TSignatureMethod: SignatureMethod + Clone;
+        TSecrets: SecretsProvider + Clone,
+        TSM: SignatureMethod + Clone;
 }
 
 /// Compatible interface with reqwest's [`Client`](https://docs.rs/reqwest/0.10.8/reqwest/struct.Client.html).
@@ -40,15 +41,15 @@ pub struct Client<TSigner> {
 }
 
 impl OAuthClientProvider for ReqwestClient {
-    fn oauth1_with_params<'a, TSecrets, TSignatureMethod>(
+    fn oauth1_with_params<'a, TSecrets, TSM>(
         self,
-        secrets: &'a TSecrets,
-        parameters: OAuthParameters<'a, TSignatureMethod>,
-    ) -> Client<Signer<'a, TSecrets, TSignatureMethod>>
+        secrets: TSecrets,
+        parameters: OAuthParameters<'a, TSM>,
+    ) -> Client<Signer<'a, TSecrets, TSM>>
     where
         Self: Sized,
-        TSecrets: SecretsProvider,
-        TSignatureMethod: SignatureMethod + Clone,
+        TSecrets: SecretsProvider + Clone,
+        TSM: SignatureMethod + Clone,
     {
         Client {
             inner: self,
@@ -83,7 +84,7 @@ impl Client<()> {
     }
 }
 
-impl<'a, T> Client<T>
+impl<T> Client<T>
 where
     T: Clone,
 {
@@ -150,17 +151,7 @@ where
     ///
     /// This method fails whenever supplied `Url` cannot be parsed.
     pub fn request<U: IntoUrl + Clone>(&self, method: Method, url: U) -> RequestBuilder<T> {
-        let cloned_url = match url.clone().into_url() {
-            Ok(url) => Some(url),
-            Err(_) => None,
-        };
-        let cloned_method = method.clone();
-        RequestBuilder::new(
-            self.inner.request(method, url),
-            cloned_method,
-            cloned_url,
-            self.signer.clone(),
-        )
+        RequestBuilder::new(&self.inner, method, url, self.signer.clone())
     }
 }
 

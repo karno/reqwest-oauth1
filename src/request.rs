@@ -3,18 +3,21 @@
 // for further information(including license information),
 // please visit their repository: https://github.com/seanmonstar/reqwest .
 // ----------------------------------------------------------------------------
-use std::{convert::TryFrom, fmt, future::Future, time::Duration};
+use std::{borrow::Cow, collections::HashMap, convert::TryFrom, fmt, time::Duration};
 
 use http::{header::AUTHORIZATION, Method};
-use oauth1_request::signature_method::HmacSha1 as DefaultSignatureMethod;
+use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
 use reqwest::{
-    header::HeaderMap, header::HeaderName, header::HeaderValue, multipart, Body, Error,
-    RequestBuilder as ReqwestRequestBuilder, Response, Url,
+    header::HeaderMap, header::HeaderName, header::HeaderValue, multipart, Body,
+    Client as RequwestClient, IntoUrl, RequestBuilder as ReqwestRequestBuilder, Response,
 };
 use serde::Serialize;
+use url::Url;
 
-use crate::{OAuthParameters, SecretsProvider, Signer};
+use crate::{
+    Error, OAuthParameters, SecretsProvider, SignResult, Signer, OAUTH_KEY_PREFIX, REALM_KEY,
+};
 
 /// Compatible interface with reqwest's [`RequestBuilder`](https://docs.rs/reqwest/0.10.8/reqwest/struct.RequestBuilder.html).
 pub struct RequestBuilder<TSigner>
@@ -26,6 +29,8 @@ where
     signer: TSigner,
     url: Option<Url>,
     body: String,
+    query_oauth_parameters: HashMap<String, String>,
+    form_oauth_parameters: HashMap<String, String>,
 }
 
 impl RequestBuilder<()> {
@@ -33,24 +38,24 @@ impl RequestBuilder<()> {
     // Set signing information
 
     /// Add the signing information.
-    pub fn sign<'a, T>(
+    pub fn sign<'a, TSecrets>(
         self,
-        secrets: &'a T,
-    ) -> RequestBuilder<Signer<'a, T, DefaultSignatureMethod>>
+        secrets: TSecrets,
+    ) -> RequestBuilder<Signer<'a, TSecrets, DefaultSM>>
     where
-        T: SecretsProvider + Clone,
+        TSecrets: SecretsProvider + Clone,
     {
         self.sign_with_params(secrets, OAuthParameters::new())
     }
 
     /// Add the signing information with OAuth parameters.
-    pub fn sign_with_params<'a, T, TSM>(
+    pub fn sign_with_params<'a, TSecrets, TSM>(
         self,
-        secrets: &'a T,
+        secrets: TSecrets,
         params: OAuthParameters<'a, TSM>,
-    ) -> RequestBuilder<Signer<'a, T, TSM>>
+    ) -> RequestBuilder<Signer<'a, TSecrets, TSM>>
     where
-        T: SecretsProvider + Clone,
+        TSecrets: SecretsProvider + Clone,
         TSM: SignatureMethod + Clone,
     {
         RequestBuilder {
@@ -58,16 +63,17 @@ impl RequestBuilder<()> {
             method: self.method,
             url: self.url,
             body: self.body,
-            signer: Signer::new(secrets, params),
+            signer: Signer::new(secrets.into(), params),
+            query_oauth_parameters: self.query_oauth_parameters,
+            form_oauth_parameters: self.form_oauth_parameters,
         }
     }
 }
 
-impl<'a, TSecretsProvider, TSignatureMethod>
-    RequestBuilder<Signer<'a, TSecretsProvider, TSignatureMethod>>
+impl<TSecrets, TSM> RequestBuilder<Signer<'_, TSecrets, TSM>>
 where
-    TSecretsProvider: SecretsProvider + Clone,
-    TSignatureMethod: SignatureMethod + Clone,
+    TSecrets: SecretsProvider + Clone,
+    TSM: SignatureMethod + Clone,
 {
     // ------------------------------------------------------------------------
     // Finish building the request and send it to server with OAuth signature
@@ -79,12 +85,12 @@ where
     ///
     /// This method fails if there was an error while sending request,
     /// redirect loop was detected or redirect limit was exhausted.
-    pub fn send(self) -> impl Future<Output = Result<Response, Error>> {
-        self.generate_signature().send()
+    pub async fn send(self) -> Result<Response, Error> {
+        Ok(self.generate_signature()?.send().await?)
     }
 
     /// Generate an OAuth signature and return the reqwest's `RequestBuilder`.
-    pub fn generate_signature(self) -> ReqwestRequestBuilder {
+    pub fn generate_signature(self) -> SignResult<ReqwestRequestBuilder> {
         if let Some(url) = self.url {
             let (is_q, url, payload) = match url.query() {
                 None | Some("") => {
@@ -98,14 +104,22 @@ where
                     (true, pure_url, q)
                 }
             };
+            let oauth_params: HashMap<String, String> = self
+                .form_oauth_parameters
+                .into_iter()
+                .chain(self.query_oauth_parameters.into_iter())
+                .collect();
+
             let signature = self
                 .signer
-                .generate_signature(self.method, url, payload, is_q);
+                .override_oauth_parameter(oauth_params)
+                .generate_signature(self.method, url, payload, is_q)?;
+            println!("generated signature: {}", signature);
             // set AUTHORIZATION header to inner RequestBuilder and return it
-            self.inner.header(AUTHORIZATION, signature)
+            Ok(self.inner.header(AUTHORIZATION, signature))
         } else {
             // just return inner RequestBuilder
-            self.inner
+            Ok(self.inner)
         }
     }
 }
@@ -114,18 +128,35 @@ impl<TSigner> RequestBuilder<TSigner>
 where
     TSigner: Clone,
 {
-    pub(crate) fn new(
-        builder: ReqwestRequestBuilder,
+    pub(crate) fn new<T: IntoUrl + Clone>(
+        client: &RequwestClient,
         method: Method,
-        url: Option<Url>,
+        url: T,
         signer: TSigner,
     ) -> Self {
-        RequestBuilder {
-            inner: builder,
-            method,
-            url,
-            body: String::new(),
-            signer: signer,
+        match url.clone().into_url() {
+            Ok(url) => {
+                let mut query_oauth_params: HashMap<String, String> = HashMap::new();
+                let stealed_url = steal_oauth_params_from_url(url, &mut query_oauth_params);
+                RequestBuilder {
+                    inner: client.request(method.clone(), stealed_url.clone()),
+                    method,
+                    url: Some(stealed_url),
+                    body: String::new(),
+                    signer: signer,
+                    query_oauth_parameters: query_oauth_params,
+                    form_oauth_parameters: HashMap::new(),
+                }
+            }
+            Err(_) => RequestBuilder {
+                inner: client.request(method.clone(), url),
+                method,
+                url: None,
+                body: String::new(),
+                signer: signer,
+                query_oauth_parameters: HashMap::new(),
+                form_oauth_parameters: HashMap::new(),
+            },
         }
     }
 
@@ -151,6 +182,9 @@ where
     /// This method will fail if the object you provide cannot be serialized
     /// into a query string.
     pub fn query<T: Serialize + ?Sized>(mut self, query: &T) -> Self {
+        // stealing oauth_* parameters
+        let query = steal_oauth_params(query, &mut self.query_oauth_parameters);
+
         // update local-captured url
         if let Some(ref mut url) = self.url {
             let mut pairs = url.query_pairs_mut();
@@ -165,20 +199,45 @@ where
             }
         }
         // passing argument into original request builder
-        self.inner = self.inner.query(query);
+        self.inner = self.inner.query(&query);
         self
     }
 
     /// Send a form body.
     pub fn form<T: Serialize + ?Sized + Clone>(mut self, form: &T) -> Self {
+        // before stealing oauth_* parameters, clear old result
+        self.form_oauth_parameters.clear();
+        // stealing oauth_* parameters
+        let form = steal_oauth_params(form, &mut self.query_oauth_parameters);
+
         match serde_urlencoded::to_string(form.clone()) {
             Ok(body) => {
-                self.inner = self.inner.form(form);
+                self.inner = self.inner.form(&form);
                 self.body = body;
                 self
             }
-            Err(_) => self.pass_through(|b| b.form(form)),
+            Err(_) => self.pass_through(|b| b.form(&form)),
         }
+    }
+
+    // ------------------------------------------------------------------------
+    // Bypass methods
+
+    /// Modify the query string of the URL, without capturing OAuth parameters.
+    ///
+    /// # Note
+    /// Generated OAuth signature will may be invalid when you call this method
+    /// with the parameters including the `oauth_*` parameters or the `realm` parameter.
+    pub fn query_without_capture<T: Serialize>(self, query: &T) -> Self {
+        self.pass_through(|b| b.query(query))
+    }
+
+    ///
+    /// # Note
+    /// Generated OAuth signature will may be invalid when you call this method
+    /// with the parameters including the `oauth_*` parameters or the `realm` parameter.
+    pub fn form_without_capture<T: Serialize + ?Sized>(self, form: &T) -> Self {
+        self.pass_through(|b| b.form(form))
     }
 
     // ------------------------------------------------------------------------
@@ -296,17 +355,79 @@ where
                 url: self.url.clone(),
                 body: self.body.clone(),
                 signer: self.signer.clone(),
+                query_oauth_parameters: self.query_oauth_parameters.clone(),
+                form_oauth_parameters: self.form_oauth_parameters.clone(),
             }),
             None => None,
         }
     }
 }
 
+fn steal_oauth_params<T>(
+    query: &T,
+    oauth_map: &mut HashMap<String, String>,
+) -> Vec<(String, String)>
+where
+    T: Serialize + ?Sized,
+{
+    let mut empty_url = Url::parse("http://example.com/")
+        // this is valid url and always success
+        .expect("failed to parse the http://example.com/, that is unexpected behavior.");
+    {
+        let mut pairs = empty_url.query_pairs_mut();
+        let serializer = serde_urlencoded::Serializer::new(&mut pairs);
+        let _ = query.serialize(serializer);
+    }
+
+    // capture oauth_* item and construct remainder vector, then return
+    steal_oauth_params_core(&empty_url, oauth_map)
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+fn steal_oauth_params_from_url(mut url: Url, oauth_map: &mut HashMap<String, String>) -> Url {
+    let remainder = steal_oauth_params_core(&url, oauth_map);
+    // clear query
+    url.set_query(None);
+    if remainder.len() > 0 {
+        // add non oauth_* parameters
+        let mut serializer = url.query_pairs_mut();
+        for (k, v) in remainder {
+            serializer.append_pair(&k, &v);
+        }
+    }
+
+    url
+}
+
+fn steal_oauth_params_core(
+    url: &Url,
+    oauth_map: &mut HashMap<String, String>,
+) -> Vec<(String, String)> {
+    // steal oauth_* items
+    url.query_pairs()
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .filter_map(|(k, v)| {
+            if k.starts_with(OAUTH_KEY_PREFIX) || k == REALM_KEY {
+                // capture oauth_* item
+                oauth_map.insert(k, v);
+                None
+            } else {
+                Some((k, v))
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use http::header::AUTHORIZATION;
 
-    use crate::{OAuthClientProvider, OAuthParameters, Secrets};
+    use crate::{
+        OAuthClientProvider, OAuthParameters, Secrets, OAUTH_NONCE_KEY, OAUTH_TIMESTAMP_KEY,
+    };
 
     fn extract_signature(auth_header: &str) -> String {
         let content = auth_header.strip_prefix("OAuth ").unwrap();
@@ -321,6 +442,34 @@ mod tests {
             .decode_utf8_lossy()
             .trim_matches('"')
             .to_string()
+    }
+
+    #[test]
+    fn call_multiple_queries() {
+        let req = reqwest::Client::new()
+            .get("https://example.com")
+            .query(&[("a", "b")])
+            .query(&[("c", "d")])
+            .build()
+            .unwrap();
+        println!("{:#?}", req.url());
+        assert_eq!(req.url().to_string(), "https://example.com/?a=b&c=d");
+    }
+
+    #[test]
+    fn call_multiple_forms() {
+        let req = reqwest::Client::new()
+            .post("https://example.com")
+            .query(&[("this is", "query")])
+            .form(&[("a", "b")]) // this will be ignored
+            .form(&[("c", "d")])
+            .build()
+            .unwrap();
+        println!("{:#?}", req.url());
+        let decoded_body = String::from_utf8_lossy(req.body().unwrap().as_bytes().unwrap());
+        println!("{:#?}", decoded_body);
+        assert_eq!(req.url().to_string(), "https://example.com/?this+is=query");
+        assert_eq!(decoded_body, "c=d");
     }
 
     #[test]
@@ -339,9 +488,9 @@ mod tests {
             .realm("photos");
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .post(endpoint)
-            .form(&[("少女", "終末旅行")]);
+            .form(&[("少女", "終末旅行"), ("oauth_should_be_ignored", "true")]);
         let url = req.body;
         // println!("{:?}", url);
         assert_eq!(
@@ -367,9 +516,10 @@ mod tests {
             .realm("photos");
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .post(endpoint)
             .generate_signature()
+            .unwrap()
             .build()
             .unwrap();
 
@@ -384,7 +534,7 @@ mod tests {
     #[test]
     fn capture_get_query() {
         // https://tools.ietf.org/html/rfc5849
-        let endpoint = "https://photos.example.net/photos?file=vacation.jpg&size=original";
+        let endpoint = "https://photos.example.net/photos?file=vacation.jpg&size=original&oauth_should_be_ignored=true";
         let c_key = "dpf43f3p2l4k3l03";
         let c_secret = "kd94hf93k423kf44";
         let token = "nnch734d00sl2jdk";
@@ -396,7 +546,7 @@ mod tests {
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .get(endpoint);
         let query = req.url.unwrap().query().unwrap().to_string();
         // println!("{:?}", query);
@@ -422,9 +572,48 @@ mod tests {
         // .version(true);
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .get(endpoint)
             .generate_signature()
+            .unwrap()
+            .build()
+            .unwrap();
+
+        let sign = req.headers().get(AUTHORIZATION);
+        // println!("{:#?}", sign);
+        assert_eq!(
+            extract_signature(sign.unwrap().to_str().unwrap()),
+            "MdpQcU8iPSUjWoN/UDMsK2sui9I="
+        );
+
+        // println!("{:#?}", sign);
+        // assert_eq!(sign, "MdpQcU8iPSUjWoN%2FUDMsK2sui9I%3D");
+    }
+
+    #[test]
+    fn sign_get_query_with_query_oauth_params() {
+        // https://tools.ietf.org/html/rfc5849
+        let endpoint =
+            "http://photos.example.net/photos?file=vacation.jpg&size=original&realm=Photos";
+        let c_key = "dpf43f3p2l4k3l03";
+        let c_secret = "kd94hf93k423kf44";
+        let token = "nnch734d00sl2jdk";
+        let token_secret = "pfkkdhi9sl3r4s00";
+        let nonce = "chapoH";
+        let timestamp = 137_131_202u64;
+
+        let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
+        // .version(true);
+
+        let req = reqwest::Client::new()
+            .oauth1(secrets)
+            .get(endpoint)
+            .query(&[
+                (OAUTH_NONCE_KEY, nonce),
+                (OAUTH_TIMESTAMP_KEY, &format!("{}", timestamp)),
+            ])
+            .generate_signature()
+            .unwrap()
             .build()
             .unwrap();
 
@@ -454,7 +643,7 @@ mod tests {
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
                 ("include_entities", "true"),
@@ -490,7 +679,7 @@ mod tests {
             .version(true);
 
         let req = reqwest::Client::new()
-            .oauth1_with_params(&secrets, params)
+            .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
                 ("include_entities", "true"),
@@ -500,6 +689,7 @@ mod tests {
                 ),
             ])
             .generate_signature()
+            .unwrap()
             .build()
             .unwrap();
 
