@@ -3,7 +3,7 @@
 // for further information(including license information),
 // please visit their repository: https://github.com/seanmonstar/reqwest .
 // ----------------------------------------------------------------------------
-use std::{borrow::Cow, collections::HashMap, convert::TryFrom, fmt, time::Duration};
+use std::{collections::HashMap, convert::TryFrom, fmt, time::Duration};
 
 use http::{header::AUTHORIZATION, Method};
 use oauth1_request::signature_method::HmacSha1 as DefaultSM;
