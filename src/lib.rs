@@ -96,8 +96,6 @@ println!(
 );
 println!("other attributes: {:#?}", resp.remain)
 ```
-
-
 */
 mod client;
 mod error;
@@ -105,16 +103,16 @@ mod request;
 mod secrets;
 mod signer;
 mod token_reader;
-#[cfg(test)]
+// #[cfg(test)]
 // mod usage_test;
 
 // exposed to external program
-pub use self::client::{Client, OAuthClientProvider};
-pub use self::error::{Error, Result, SignError, SignResult, TokenReaderError, TokenReaderResult};
-pub use self::request::RequestBuilder;
-pub use self::secrets::{Secrets, SecretsProvider};
-pub use self::signer::{OAuthParameters, Signer};
-pub use self::token_reader::{TokenReader, TokenReaderFuture, TokenResponse};
+pub use client::{Client, OAuthClientProvider};
+pub use error::{Error, Result, SignError, SignResult, TokenReaderError, TokenReaderResult};
+pub use request::RequestBuilder;
+pub use secrets::{Secrets, SecretsProvider};
+pub use signer::{OAuthParameters, Signer};
+pub use token_reader::{TokenReader, TokenReaderFuture, TokenResponse};
 
 // exposed constant variables
 /// Represents `oauth_callback`.
