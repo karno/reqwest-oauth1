@@ -1,7 +1,10 @@
 use thiserror::Error;
 
+/// Result type bound with `Error`.
 pub type Result<T> = std::result::Result<T, Error>;
+/// Result type bound with `SignError`.
 pub type SignResult<T> = std::result::Result<T, SignError>;
+/// Result type bound with `TokenReaderError`.
 pub type TokenReaderResult<T> = std::result::Result<T, TokenReaderError>;
 
 /// The Error bundles the TokenReaderError, SignError, and reqwest::Error.
@@ -32,6 +35,7 @@ pub enum SignError {
     InvalidVersion(String),
 }
 
+/// Errors thrown from token_reader.
 #[derive(Error, Debug, Clone)]
 pub enum TokenReaderError {
     /// Returned value could not be parsed in the TokenReader.

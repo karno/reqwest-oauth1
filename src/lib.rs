@@ -117,11 +117,17 @@ pub use signer::*;
 pub use token_reader::*;
 
 // exposed constant variables
+/// Represents `oauth_callback`.
 pub const OAUTH_CALLBACK_KEY: &str = "oauth_callback";
+/// Represents `oauth_nonce`.
 pub const OAUTH_NONCE_KEY: &str = "oauth_nonce";
+/// Represents `oauth_timestamp`.
 pub const OAUTH_TIMESTAMP_KEY: &str = "oauth_timestamp";
+/// Represents `oauth_verifier`.
 pub const OAUTH_VERIFIER_KEY: &str = "oauth_verifier";
+/// Represents `oauth_version`.
 pub const OAUTH_VERSION_KEY: &str = "oauth_version";
+/// Represents `realm`.
 pub const REALM_KEY: &str = "realm";
 
 // crate-private constant variables

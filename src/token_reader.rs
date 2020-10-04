@@ -19,6 +19,7 @@ pub struct TokenResponse {
     pub remain: HashMap<String, String>,
 }
 
+/// Add parse_oauth_token feature to reqwest::Response.
 // this trait is sealed
 #[async_trait(?Send)]
 pub trait TokenReader: private::Sealed {
@@ -35,6 +36,7 @@ impl TokenReader for Response {
     }
 }
 
+/// Add parse_oauth_token feature to Future of reqwest::Response.
 // this trait is also sealed
 #[async_trait(?Send)]
 pub trait TokenReaderFuture: private::SealedWrapper {
