@@ -152,9 +152,3 @@ where
         RequestBuilder::new(&self.inner, method, url, self.signer.clone())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn empty() {}
-}
