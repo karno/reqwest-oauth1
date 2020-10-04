@@ -109,12 +109,12 @@ mod token_reader;
 // mod usage_test;
 
 // exposed to external program
-pub use client::*;
-pub use error::*;
-pub use request::*;
-pub use secrets::*;
-pub use signer::*;
-pub use token_reader::*;
+pub use client::{Client, OAuthClientProvider};
+pub use error::{Error, Result, SignError, SignResult, TokenReaderError, TokenReaderResult};
+pub use request::RequestBuilder;
+pub use secrets::{Secrets, SecretsProvider};
+pub use signer::{OAuthParameters, Signer};
+pub use token_reader::{TokenReader, TokenReaderFuture, TokenResponse};
 
 // exposed constant variables
 /// Represents `oauth_callback`.
