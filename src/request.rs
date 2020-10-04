@@ -114,7 +114,7 @@ where
                 .signer
                 .override_oauth_parameter(oauth_params)
                 .generate_signature(self.method, url, payload, is_q)?;
-            println!("generated signature: {}", signature);
+            // println!("generated signature: {}", signature);
             // set AUTHORIZATION header to inner RequestBuilder and return it
             Ok(self.inner.header(AUTHORIZATION, signature))
         } else {
@@ -452,7 +452,7 @@ mod tests {
             .query(&[("c", "d")])
             .build()
             .unwrap();
-        println!("{:#?}", req.url());
+        // println!("{:#?}", req.url());
         assert_eq!(req.url().to_string(), "https://example.com/?a=b&c=d");
     }
 
@@ -465,9 +465,9 @@ mod tests {
             .form(&[("c", "d")])
             .build()
             .unwrap();
-        println!("{:#?}", req.url());
+        // println!("{:#?}", req.url());
         let decoded_body = String::from_utf8_lossy(req.body().unwrap().as_bytes().unwrap());
-        println!("{:#?}", decoded_body);
+        // println!("{:#?}", decoded_body);
         assert_eq!(req.url().to_string(), "https://example.com/?this+is=query");
         assert_eq!(decoded_body, "c=d");
     }

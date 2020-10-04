@@ -31,7 +31,7 @@ impl TokenReader for Response {
     async fn parse_oauth_token(self) -> Result<TokenResponse> {
         let text = self.text().await?;
         // let text = self.error_for_status()?.text().await?;
-        println!("{:#?}", text);
+        // println!("{:#?}", text);
         Ok(read_oauth_token(text)?)
     }
 }

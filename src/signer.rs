@@ -113,7 +113,7 @@ where
         // generate signature
         // Step 0. instantiate sign generator
         let sig_method = params.signature_method.clone();
-        println!("signing url: {:#?}", url);
+        // println!("signing url: {:#?}", url);
         let mut signer = generate_signer(
             sig_method,
             method.as_str(),
