@@ -8,9 +8,7 @@ use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
 use reqwest::{Client as ReqwestClient, IntoUrl, Method};
 
-use crate::{OAuthParameters, SecretsProvider, Signer};
-
-use super::request::RequestBuilder;
+use crate::{OAuthParameters, RequestBuilder, SecretsProvider, Signer};
 
 /// Bridge trait from reqwest's `Client` from our `Client`.
 pub trait OAuthClientProvider {
