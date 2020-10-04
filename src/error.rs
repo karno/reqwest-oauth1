@@ -3,24 +3,27 @@ use thiserror::Error;
 /// Result type bound with `Error`.
 pub type Result<T> = std::result::Result<T, Error>;
 /// Result type bound with `SignError`.
-pub type SignResult<T> = std::result::Result<T, SignError>;
+pub type SignResult<T> = std::result::Result<T, SignerError>;
 /// Result type bound with `TokenReaderError`.
 pub type TokenReaderResult<T> = std::result::Result<T, TokenReaderError>;
 
 /// The Error bundles the TokenReaderError, SignError, and reqwest::Error.
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Represents TokenReaderError
     #[error("token acquisition failed : {0}")]
     TokenReader(#[from] TokenReaderError),
+    /// Represents SignError
     #[error("OAuth sign failed : {0}")]
-    Signer(#[from] SignError),
+    Signer(#[from] SignerError),
+    /// Represents reqwest::Error
     #[error("request failed : {0}")]
     Reqwest(#[from] reqwest::Error),
 }
 
 /// Errors about the signing with OAuth1 protocol.
 #[derive(Error, Debug, Clone)]
-pub enum SignError {
+pub enum SignerError {
     /// Specified oauth_* parameter is not existed in the protocol specification.
     #[error("unknown oauth parameter : {0}")]
     UnknownParameter(String),

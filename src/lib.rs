@@ -108,7 +108,7 @@ mod token_reader;
 
 // exposed to external program
 pub use client::{Client, OAuthClientProvider};
-pub use error::{Error, Result, SignError, SignResult, TokenReaderError, TokenReaderResult};
+pub use error::{Error, Result, SignResult, SignerError, TokenReaderError, TokenReaderResult};
 pub use request::RequestBuilder;
 pub use secrets::{Secrets, SecretsProvider};
 pub use signer::{OAuthParameters, Signer};

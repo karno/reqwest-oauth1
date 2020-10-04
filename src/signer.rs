@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use crate::{SecretsProvider, SignError, SignResult};
+use crate::{SecretsProvider, SignResult, SignerError};
 use crate::{
     OAUTH_CALLBACK_KEY, OAUTH_CONSUMER_KEY, OAUTH_KEY_PREFIX, OAUTH_NONCE_KEY,
     OAUTH_SIGNATURE_METHOD_KEY, OAUTH_TIMESTAMP_KEY, OAUTH_TOKEN_KEY, OAUTH_VERIFIER_KEY,
@@ -30,7 +30,7 @@ where
     TSM: SignatureMethod + Clone,
 {
     secrets: TSecrets,
-    parameters: Result<OAuthParameters<'a, TSM>, SignError>,
+    parameters: Result<OAuthParameters<'a, TSM>, SignerError>,
 }
 
 impl<'a, TSecretsProvider, TSM> Signer<'a, TSecretsProvider, TSM>
@@ -57,18 +57,18 @@ where
                     // potential to fail
                     OAUTH_TIMESTAMP_KEY => match value.parse::<u64>() {
                         Ok(v) => Ok(p.timestamp(v)),
-                        Err(_) => Err(SignError::InvalidTimestamp(value)),
+                        Err(_) => Err(SignerError::InvalidTimestamp(value)),
                     },
                     OAUTH_VERSION_KEY => match value.as_str() {
                         "1.0" => Ok(p.version(true)),
                         "" => Ok(p.version(false)),
-                        _ => Err(SignError::InvalidVersion(value)),
+                        _ => Err(SignerError::InvalidVersion(value)),
                     },
                     // always fail
                     OAUTH_SIGNATURE_METHOD_KEY | OAUTH_CONSUMER_KEY | OAUTH_TOKEN_KEY => {
-                        Err(SignError::UnconfigurableParameter(key))
+                        Err(SignerError::UnconfigurableParameter(key))
                     }
-                    _ => Err(SignError::UnknownParameter(key)),
+                    _ => Err(SignerError::UnknownParameter(key)),
                 },
                 Err(e) => Err(e),
             };
