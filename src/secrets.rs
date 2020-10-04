@@ -33,7 +33,7 @@ let secrets_with_token = secrets.token(access_token, token_secret);
 
 // use the secret
 let req = reqwest::Client::new()
-    .oauth1(&secrets_with_token)
+    .oauth1(secrets_with_token)
     .post(endpoint)
 ```
 

@@ -203,26 +203,23 @@ let params = OAuthParameters::new()
     .callback(callback);
 
 let req = reqwest::Client::new()
-    .oauth1_with_params(&secrets, params)
+    .oauth1_with_params(secrets, params)
     .post(endpoint)
     ...
 ```
 
 # Note
 
-If you want to add `realm` parameter in your request, you must pass it
-by OAuthParameter. Otherwise, you will get the wrong signature.
+You can specify same parameters as get/post queries and they will superseded
+with the specified one in the OAuthParameters.
 
 ```rust
-let realm = "Realm";
 let params = OAuthParameters::new()
-    .realm(realm);
-
+    .nonce("ThisNonceWillBeSuperseded");
 let req = reqwest::Client::new()
-    .oauth1_with_params(&secrets, params)
-    .post(endpoint)
-    // YOU CAN'T DO THIS!
-    // .form(&[("realm", realm)])
+    .oauth1_with_params(secrets, paras)
+    .get(endpoint)
+    .query(&[("nonce", "ThisNonceWillSupersedeTheOldOne")])
     ...
 ```
 
