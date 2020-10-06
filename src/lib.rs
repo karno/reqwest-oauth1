@@ -13,9 +13,9 @@ crate by providing the thin (partial-)compatible interface layer built with [oau
 ## Basic usecase 1 - sending the tweet
 
 ```rust
-use reqwest-oauth1;
 use reqwest;
 use reqwest::multipart;
+use reqwest_oauth1::OAuthClientProvider;
 
 // prepare authorization info
 let consumer_key = "[CONSUMER_KEY]";
@@ -23,78 +23,82 @@ let consumer_secret = "[CONSUMER_SECRET]";
 let access_token = "[ACCESS_TOKEN]";
 let token_secret = "[TOKEN_SECRET]";
 
-let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret)
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret)
   .token(access_token, token_secret);
 
 // sample: send new tweet to twitter
 let endpoint = "https://api.twitter.com/1.1/statuses/update.json";
 
 let content = multipart::Form::new()
-    .text("status", "Hello, Twitter!")?;
+    .text("status", "Hello, Twitter!");
 
 let client = reqwest::Client::new();
 let resp = client
     // enable OAuth1 request
     .oauth1(secrets)
     .post(endpoint)
-    .multipart(form)
-    .send()?;
+    .multipart(content)
+    .send();
 ```
 
 ## Basic usecase 2 - Acquiring OAuth token & secret
 
 ```rust
 use std::io;
-use reqwest-oauth1;
 use reqwest;
+use reqwest_oauth1::{OAuthClientProvider, TokenReaderFuture};
 
-// prepare authorization info
-let consumer_key = "[CONSUMER_KEY]";
-let consumer_secret = "[CONSUMER_SECRET]";
+async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
+    // prepare authorization info
+    let consumer_key = "[CONSUMER_KEY]";
+    let consumer_secret = "[CONSUMER_SECRET]";
 
-let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret);
+    let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret);
 
-// sample: request access token to twitter
+    // sample: request access token to twitter
 
-// step 1: acquire request token & token secret
-let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
+    // step 1: acquire request token & token secret
+    let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
-let client = reqwest::Client::new();
-let resp = client
-    .oauth1(secrets)
-    .get(endpoint_reqtoken)
-    .query(&[("oauth_callback", "oob")])
-    .send()
-    .parse_oauth_token()
-    .await?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_reqtoken)
+        .query(&[("oauth_callback", "oob")])
+        .send()
+        .parse_oauth_token()
+        .await?;
 
-// step 2. acquire user pin
-let endpoint_authorize = "https://api.twitter.com/oauth/authorize?oauth_token=";
-println!("please access to: {}{}", endpoint_authorize, resp.oauth_token);
+    // step 2. acquire user pin
+    let endpoint_authorize = "https://api.twitter.com/oauth/authorize?oauth_token=";
+    println!("please access to: {}{}", endpoint_authorize, resp.oauth_token);
 
-println!("input pin: ");
-let mut user_input = String::new();
-io::stdin().read_line(&mut user_input)?;
-let pin = user_input.trim();
+    println!("input pin: ");
+    let mut user_input = String::new();
+    io::stdin().read_line(&mut user_input)
+        .expect("Failed to read the user input");
+    let pin = user_input.trim();
 
-// step 3. acquire access token
-let secrets = Secrets::new(consumer_key, consumer_secret)
-        .token(resp.oauth_token, resp.oauth_token_secret);
-let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
+    // step 3. acquire access token
+    let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret)
+            .token(resp.oauth_token, resp.oauth_token_secret);
+    let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
-let client = reqwest::Client::new();
-let resp = client
-    .oauth1(secrets)
-    .get(endpoint_acctoken)
-    .query(&[("oauth_verifier", pin)])
-    .send()
-    .parse_oauth_token()
-    .await?;
-println!(
-    "your token and secret is: \n token: {}\n secret: {}",
-    resp.oauth_token, resp.oauth_token_secret
-);
-println!("other attributes: {:#?}", resp.remain)
+    let client = reqwest::Client::new();
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_acctoken)
+        .query(&[("oauth_verifier", pin)])
+        .send()
+        .parse_oauth_token()
+        .await?;
+    println!(
+        "your token and secret is: \n token: {}\n secret: {}",
+        resp.oauth_token, resp.oauth_token_secret
+    );
+    println!("other attributes: {:#?}", resp.remain);
+    Ok(())
+}
 ```
 */
 mod client;

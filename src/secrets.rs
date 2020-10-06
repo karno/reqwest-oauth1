@@ -20,11 +20,13 @@ The token and token_secret are optional.
 # Basic usage
 
 ```rust
+use reqwest_oauth1::OAuthClientProvider;
+
 let consumer_key = "[CONSUMER_KEY]";
 let consumer_secret = "[CONSUMER_SECRET]";
 
 // if you don't have the token and token secret:
-let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret);
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret);
 
 // when you have the access token and secret:
 let access_token = "[ACCESS_TOKEN]";
@@ -34,7 +36,7 @@ let secrets_with_token = secrets.token(access_token, token_secret);
 // use the secret
 let req = reqwest::Client::new()
     .oauth1(secrets_with_token)
-    .post(endpoint)
+    .post("http://example.com/");
 ```
 
 */

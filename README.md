@@ -1,6 +1,6 @@
 # reqwest-oauth1: reqwest ♡ oauth1-request
 
-Add feature of OAuth1-signing to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
+Add OAuth1 signature to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
 
 This library provides partial compatible interface of reqwest.
 
@@ -21,14 +21,14 @@ reqwest-oauth1 = "*"
 
 ### At a glance overview
 
-1. Add reference to crate `reqwest-oauth1` in your code like `use reqwest-oauth1;`
+1. Add reference to crate `reqwest_oauth1` in your code like `use reqwest_oauth1;`
 2. Prepare OAuth keys: `consumer_key`, `consumer_secret`, `access_token`, and `token_secret`.
 3. Add `oauth1`  method into your method chain of `reqwest`'s.
 
 ```rust
-use reqwest-oauth1;
 use reqwest;
 use reqwest::multipart;
+use reqwest_oauth1::OAuthClientProvider;
 
 // prepare authorization info
 let consumer_key = "[CONSUMER_KEY]";
@@ -36,22 +36,23 @@ let consumer_secret = "[CONSUMER_SECRET]";
 let access_token = "[ACCESS_TOKEN]";
 let token_secret = "[TOKEN_SECRET]";
 
-let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret)
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret)
   .token(access_token, token_secret);
 
 // sample: send new tweet to twitter
 let endpoint = "https://api.twitter.com/1.1/statuses/update.json";
 
 let content = multipart::Form::new()
-    .text("status", "Hello, Twitter!")?;
+    .text("status", "Hello, Twitter!");
 
 let client = reqwest::Client::new();
 let resp = client
     // enable OAuth1 request
     .oauth1(secrets)
     .post(endpoint)
-    .multipart(form)
-    .send()?;
+    .multipart(content)
+    .send()
+    .await?;
 ```
 
 ### OAuth key acquisition
@@ -62,14 +63,14 @@ Please note there still needs the `consumer_key` and the `consumer_secret` and y
 
 ```rust
 use std::io;
-use reqwest-oauth1;
 use reqwest;
+use reqwest_oauth1::OAuthClientProvider;
 
 // prepare authorization info
 let consumer_key = "[CONSUMER_KEY]";
 let consumer_secret = "[CONSUMER_SECRET]";
 
-let secrets = reqwest-oauth1::Secrets::new(consumer_key, consumer_secret);
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret);
 
 // sample: request access token to twitter
 
@@ -110,7 +111,7 @@ println!(
     "your token and secret is: \n token: {}\n secret: {}",
     resp.oauth_token, resp.oauth_token_secret
 );
-println!("other attributes: {:#?}", resp.remain)
+println!("other attributes: {:#?}", resp.remain);
 ```
 
 ### Another option
@@ -125,7 +126,8 @@ let resp = client
     .multipart(form)
     // ... and add secrets to generate signature
     .sign(secrets)
-    .send()?;
+    .send()
+    .await?;
 ```
 
 ### Detailed behavior
@@ -135,7 +137,7 @@ You can specify `oauth_*` parameters both of in `OAuthParameters` or get/post qu
 If you specify the parameter with both of them, the parameters specified as get/post query will supersede the parameters passed with `OAuthParameters`.
 
 ```rust
-let params = OAuthParameters::new()
+let params = reqwest_oauth1::OAuthParameters::new()
     .nonce("ThisNonceWillBeSuperseded");
 let req = reqwest::Client::new()
     .oauth1_with_params(secrets, paras)

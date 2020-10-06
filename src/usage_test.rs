@@ -1,4 +1,4 @@
-// use reqwest-oauth1;
+// use reqwest_oauth1;
 use reqwest;
 use std::{collections::HashMap, io};
 use tokio;

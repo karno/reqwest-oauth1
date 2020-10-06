@@ -189,23 +189,26 @@ Represents OAuth parameters including oauth_nonce, oauth_timestamp, realm, and o
 # Basic usage
 
 ```rust
+use reqwest_oauth1::OAuthClientProvider;
+
 let consumer_key = "[CONSUMER_KEY]";
 let consumer_secret = "[CONSUMER_SECRET]";
-let secrets = reqwest-oauth1::Secret::new(consumer_key, consumer_secret);
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret);
 
 let nonce = "[NONCE]";
 let timestamp = 100_000_001u64;
 let callback = "http://example.com/ready";
 
-let params = OAuthParameters::new()
+let params = reqwest_oauth1::OAuthParameters::new()
     .nonce(nonce)
     .timestamp(timestamp)
     .callback(callback);
 
 let req = reqwest::Client::new()
     .oauth1_with_params(secrets, params)
-    .post(endpoint)
-    ...
+    .post("http://example.com/")
+    // and so on...
+    ;
 ```
 
 # Note
@@ -214,13 +217,20 @@ You can specify same parameters as get/post queries and they will superseded
 with the specified one in the OAuthParameters.
 
 ```rust
-let params = OAuthParameters::new()
+use reqwest_oauth1::OAuthClientProvider;
+
+let consumer_key = "[CONSUMER_KEY]";
+let consumer_secret = "[CONSUMER_SECRET]";
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret);
+
+let params = reqwest_oauth1::OAuthParameters::new()
     .nonce("ThisNonceWillBeSuperseded");
 let req = reqwest::Client::new()
-    .oauth1_with_params(secrets, paras)
-    .get(endpoint)
+    .oauth1_with_params(secrets, params)
+    .get("http://example.com/")
     .query(&[("nonce", "ThisNonceWillSupersedeTheOldOne")])
-    ...
+    // and so on...
+    ;
 ```
 
 */
