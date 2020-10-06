@@ -10,6 +10,7 @@ const OAUTH_TOKEN_KEY: &str = "oauth_token";
 const OAUTH_TOKEN_SECRET_KEY: &str = "oauth_token_secret";
 
 /// Represents response of token acquisition.
+#[derive(Debug)]
 pub struct TokenResponse {
     /// OAuth Token
     pub oauth_token: String,
