@@ -167,7 +167,7 @@ mod test {
         let resp_str_sample = "oauth_token_secret=";
         let parsed = read_oauth_token(resp_str_sample.to_string());
         assert!(parsed.is_err());
-        if let TokenReaderError::TokenKeyNotFound(key, resp_str) = parsed.err().unwrap() {
+        if let Err(TokenReaderError::TokenKeyNotFound(key, resp_str)) = parsed {
             assert_eq!(key, OAUTH_TOKEN_KEY);
             assert_eq!(resp_str, resp_str_sample)
         } else {
@@ -180,7 +180,7 @@ mod test {
         let resp_str_sample = "oauth_token=";
         let parsed = read_oauth_token(resp_str_sample.to_string());
         assert!(parsed.is_err());
-        if let TokenReaderError::TokenKeyNotFound(key, resp_str) = parsed.err().unwrap() {
+        if let Err(TokenReaderError::TokenKeyNotFound(key, resp_str)) = parsed {
             assert_eq!(key, OAUTH_TOKEN_SECRET_KEY);
             assert_eq!(resp_str, resp_str_sample)
         } else {
