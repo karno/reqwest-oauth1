@@ -8,6 +8,7 @@ description = "Add OAuth1 signature to reqwest with oauth1-request."
 repository = "https://github.com/karno/reqwest-oauth1"
 readme = "README.md"
 keywords = ["oauth", "reqwest", "request", "http"]
+categories = ["web-programming::http-client", "authentication"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
