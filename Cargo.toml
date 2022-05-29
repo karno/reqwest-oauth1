@@ -1,6 +1,6 @@
 [package]
 name = "reqwest-oauth1"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Karno <karnoroid@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -11,12 +11,14 @@ keywords = ["oauth", "reqwest", "request", "http"]
 categories = ["web-programming::http-client", "authentication"]
 
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["multipart"]
+multipart = ["reqwest/multipart"]
 
 [dependencies]
 http = "0.2.1"
 oauth1-request = "0.3.3"
-reqwest = "0.10.8"
+reqwest = { version = "0.11.10" }
 serde = "1.0.116"
 serde_urlencoded = "0.7.0"
 url = "2.2.0"

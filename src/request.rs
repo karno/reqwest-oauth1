@@ -8,9 +8,11 @@ use std::{collections::HashMap, convert::TryFrom, fmt, time::Duration};
 use http::{header::AUTHORIZATION, Method};
 use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
+#[cfg(feature = "multipart")]
+use reqwest::multipart;
 use reqwest::{
-    header::HeaderMap, header::HeaderName, header::HeaderValue, multipart, Body,
-    Client as RequwestClient, IntoUrl, RequestBuilder as ReqwestRequestBuilder, Response,
+    header::HeaderMap, header::HeaderName, header::HeaderValue, Body, Client as RequwestClient,
+    IntoUrl, RequestBuilder as ReqwestRequestBuilder, Response,
 };
 use serde::Serialize;
 use url::Url;
@@ -327,6 +329,7 @@ where
     /// ```
     ///
     /// Note: multipart/form-data is not handled by the OAuth signer.
+    #[cfg(feature = "multipart")]
     pub fn multipart(self, multipart: multipart::Form) -> Self {
         self.pass_through(|b| b.multipart(multipart))
     }
