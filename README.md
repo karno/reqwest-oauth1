@@ -1,6 +1,6 @@
 # reqwest-oauth1: reqwest ♡ oauth1-request
 
-Add OAuth1 signature to [reqwest](https://crates.io/crates/reqwest)  with [oauth1-request](https://crates.io/crates/oauth1-request).
+Add OAuth1 signature to [reqwest](https://crates.io/crates/reqwest) with [oauth1-request](https://crates.io/crates/oauth1-request).
 
 This library provides partial compatible interface of reqwest.
 
@@ -23,7 +23,7 @@ reqwest-oauth1 = "*"
 
 1. Add reference to crate `reqwest_oauth1` in your code like `use reqwest_oauth1;`
 2. Prepare OAuth keys: `consumer_key`, `consumer_secret`, `access_token`, and `token_secret`.
-3. Add `oauth1`  method into your method chain of `reqwest`'s.
+3. Add `oauth1` method into your method chain of `reqwest`'s.
 
 ```rust
 use reqwest;
@@ -162,13 +162,12 @@ When you calling `oauth1` method in `Client`, or `sign` method in `RequestBuilde
 
 Licensed under either of
 
-* Apache License, Version 2.0
-([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license
-([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0
+  ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license
+  ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
-
 
 Note: This library contains derived artifacts from seanmonster's [`reqwest`](https://crates.io/crates/reqwest).
 It is distributed under the either of MIT License or Apache License.
@@ -179,3 +178,10 @@ See [LICENSE-REQWEST-MIT](./LICENSE-REQUEST-MIT) and [LICENSE-REQWEST-APACHE](./
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
+## Known Issue
+
+This library still depends on the older version `0.3.3` of `oauth1-request`.
+This library depends on the raw implementation of the oauth1 signing method, however, the recent versions of `oauth1-request` hide their raw interface. Therefore, we can't migrate to a newer version of them.
+
+Currently, severe vulnerabilities have not reported on those versions, so I think we can still use older versions, but your contributions are always welcome.
