@@ -106,7 +106,7 @@ let resp = client
     .query(&[("oauth_verifier", pin)])
     .send()
     .parse_oauth_token()
-    .await?
+    .await?;
 println!(
     "your token and secret is: \n token: {}\n secret: {}",
     resp.oauth_token, resp.oauth_token_secret
@@ -182,6 +182,6 @@ dual licensed as above, without any additional terms or conditions.
 ## Known Issue
 
 This library still depends on the older version `0.3.3` of `oauth1-request`.
-This library depends on the raw implementation of the oauth1 signing method, however, the recent versions of `oauth1-request` hide their raw interface. Therefore, we can't migrate to a newer version of them.
+This depends on the raw implementation of the oauth1 signing method, however, the recent versions of `oauth1-request` hide their raw interface. Therefore, we can't migrate to a newer version of them.
 
 Currently, severe vulnerabilities have not reported on those versions, so I think we can still use older versions, but your contributions are always welcome.
