@@ -18,7 +18,7 @@ multipart = ["reqwest/multipart"]
 [dependencies]
 http = "0.2.1"
 oauth1-request = "0.3.3"
-reqwest = { version = "0.11.10" }
+reqwest = { version = "0.11.10", default-features = false }
 serde = "1.0.116"
 serde_urlencoded = "0.7.0"
 url = "2.2.0"
