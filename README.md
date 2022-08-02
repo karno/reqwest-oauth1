@@ -64,7 +64,7 @@ Please note there still needs the `consumer_key` and the `consumer_secret` and y
 ```rust
 use std::io;
 use reqwest;
-use reqwest_oauth1::OAuthClientProvider;
+use reqwest_oauth1::{OAuthClientProvider, TokenReaderFuture};
 
 // prepare authorization info
 let consumer_key = "[CONSUMER_KEY]";
@@ -80,7 +80,7 @@ let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 let client = reqwest::Client::new();
 let resp = client
     .oauth1(secrets)
-    .get(endpoint_reqtoken)
+    .post(endpoint_reqtoken)
     .query(&[("oauth_callback", "oob")])
     .send()
     .parse_oauth_token()
@@ -139,7 +139,7 @@ If you specify the parameter with both of them, the parameters specified as get/
 ```rust
 let params = reqwest_oauth1::OAuthParameters::new()
     .nonce("ThisNonceWillBeSuperseded");
-let req = reqwest::Client::new()
+let req = oauth1_reqwest::Client::new()
     .oauth1_with_params(secrets, paras)
     .get(endpoint)
     .query(&[("nonce", "ThisNonceWillSupersedeTheOldOne")])
