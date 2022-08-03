@@ -96,7 +96,8 @@ io::stdin().read_line(&mut user_input)?;
 let pin = user_input.trim();
 
 // step 3. acquire access token
-let secrets = secrets.token(req_token, req_secret);
+let secrets = reqwest_oauth1::Secrets::new(consumer_key, consumer_secret)
+    .token(resp.oauth_token, resp.oauth_token_secret);
 let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
 let client = reqwest::Client::new();
@@ -139,7 +140,7 @@ If you specify the parameter with both of them, the parameters specified as get/
 ```rust
 let params = reqwest_oauth1::OAuthParameters::new()
     .nonce("ThisNonceWillBeSuperseded");
-let req = oauth1_reqwest::Client::new()
+let req = reqwest::Client::new()
     .oauth1_with_params(secrets, paras)
     .get(endpoint)
     .query(&[("nonce", "ThisNonceWillSupersedeTheOldOne")])
