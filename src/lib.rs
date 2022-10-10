@@ -69,6 +69,18 @@ async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
         .parse_oauth_token()
         .await?;
 
+    /*
+    or
+
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_reqtoken)
+        .query(&[("oauth_callback", "oob")])
+        .send()
+        .await?;
+    let resp = serde_urlencoded::from_str::<reqwest_oauth1::TokenResponse>(resp.text().await?.as_str()).unwrap();
+    */
+
     // step 2. acquire user pin
     let endpoint_authorize = "https://api.twitter.com/oauth/authorize?oauth_token=";
     println!("please access to: {}{}", endpoint_authorize, resp.oauth_token);
