@@ -2,6 +2,7 @@ use std::{collections::HashMap, future::Future};
 
 use async_trait::async_trait;
 use reqwest::Response;
+use serde::Deserialize;
 
 use crate::{Error, Result, TokenReaderError, TokenReaderResult};
 
@@ -10,13 +11,14 @@ const OAUTH_TOKEN_KEY: &str = "oauth_token";
 const OAUTH_TOKEN_SECRET_KEY: &str = "oauth_token_secret";
 
 /// Represents response of token acquisition.
-#[derive(Debug)]
+#[derive(Deserialize, Debug)]
 pub struct TokenResponse {
     /// OAuth Token
     pub oauth_token: String,
     /// OAuth Token Secret
     pub oauth_token_secret: String,
     /// Other contents
+    #[serde(flatten)]
     pub remain: HashMap<String, String>,
 }
 
@@ -125,33 +127,41 @@ mod test {
     #[test]
     fn parse_response_typical() {
         let resp_str_sample = "oauth_token=Z6eEdO8MOmk394WozF5oKyuAv855l4Mlqo7hhlSLik&oauth_token_secret=Kd75W4OQfb2oJTV0vzGzeXftVAwgMnEK9MumzYcM&oauth_callback_confirmed=true";
-        let parsed = read_oauth_token(resp_str_sample.to_string()).unwrap();
-        assert_eq!(
-            parsed.oauth_token,
-            "Z6eEdO8MOmk394WozF5oKyuAv855l4Mlqo7hhlSLik"
-        );
-        assert_eq!(
-            parsed.oauth_token_secret,
-            "Kd75W4OQfb2oJTV0vzGzeXftVAwgMnEK9MumzYcM"
-        );
-        assert_eq!(parsed.remain.len(), 1);
-        let oauth_callback_confirmed = parsed.remain.get("oauth_callback_confirmed").unwrap();
-        assert_eq!(oauth_callback_confirmed, "true");
+        for parsed in &[
+            read_oauth_token(resp_str_sample.to_string()).unwrap(),
+            serde_urlencoded::from_str::<TokenResponse>(resp_str_sample).unwrap(),
+        ] {
+            assert_eq!(
+                parsed.oauth_token,
+                "Z6eEdO8MOmk394WozF5oKyuAv855l4Mlqo7hhlSLik"
+            );
+            assert_eq!(
+                parsed.oauth_token_secret,
+                "Kd75W4OQfb2oJTV0vzGzeXftVAwgMnEK9MumzYcM"
+            );
+            assert_eq!(parsed.remain.len(), 1);
+            let oauth_callback_confirmed = parsed.remain.get("oauth_callback_confirmed").unwrap();
+            assert_eq!(oauth_callback_confirmed, "true");
+        }
     }
 
     #[test]
     fn parse_response_edge() {
         let resp_str_sample = "oauth_token==&oauth_token_secret=&keyonly=&keyonly2&=&&";
-        let parsed = read_oauth_token(resp_str_sample.to_string()).unwrap();
-        assert_eq!(parsed.oauth_token, "=");
-        assert_eq!(parsed.oauth_token_secret, "");
-        assert_eq!(parsed.remain.len(), 3);
-        let keyonly = parsed.remain.get("keyonly").unwrap();
-        assert_eq!(keyonly, "");
-        let keyonly2 = parsed.remain.get("keyonly2").unwrap();
-        assert_eq!(keyonly2, "");
-        let empty = parsed.remain.get("").unwrap();
-        assert_eq!(empty, "");
+        for parsed in &[
+            read_oauth_token(resp_str_sample.to_string()).unwrap(),
+            serde_urlencoded::from_str::<TokenResponse>(resp_str_sample).unwrap(),
+        ] {
+            assert_eq!(parsed.oauth_token, "=");
+            assert_eq!(parsed.oauth_token_secret, "");
+            assert_eq!(parsed.remain.len(), 3);
+            let keyonly = parsed.remain.get("keyonly").unwrap();
+            assert_eq!(keyonly, "");
+            let keyonly2 = parsed.remain.get("keyonly2").unwrap();
+            assert_eq!(keyonly2, "");
+            let empty = parsed.remain.get("").unwrap();
+            assert_eq!(empty, "");
+        }
     }
 
     #[test]
