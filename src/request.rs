@@ -223,6 +223,27 @@ where
         }
     }
 
+    /// Sends a application/json body.
+    ///
+    /// ```
+    /// # use reqwest::Error;
+    ///
+    /// # async fn run() -> Result<(), Error> {
+    /// let client = reqwest::Client::new();
+    /// let mut map = serde_json::Map::<String, serde_json::Value>::new();
+    /// map.insert("key".into(), "value".into());
+    ///
+    /// let response = client.post("your url").json(&map).send().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Note: application/json is not handled by the OAuth signer.
+    #[cfg(feature = "json")]
+    pub fn json<T: Serialize + ?Sized>(self, json: &T) -> Self {
+        self.pass_through(|b: ReqwestRequestBuilder| b.json(json))
+    }
+
     // ------------------------------------------------------------------------
     // Bypass methods
 
