@@ -8,7 +8,6 @@ use std::{collections::HashMap, convert::TryFrom, fmt, time::Duration};
 use http::{header::AUTHORIZATION, Method};
 use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
-#[cfg(feature = "multipart")] 
 use reqwest::{
     header::HeaderMap, header::HeaderName, header::HeaderValue,
     IntoUrl,
