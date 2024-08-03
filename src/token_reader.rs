@@ -72,7 +72,7 @@ where
     }
 }
 
-fn read_oauth_token(text: String) -> TokenReaderResult<TokenResponse> {
+fn read_oauth_token(text: String) -> TokenReaderResult<TokenResponse> { 
     let mut destructured = text
         .split("&")
         .map(|e| e.splitn(2, "="))

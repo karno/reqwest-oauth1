@@ -8,12 +8,30 @@ use std::{collections::HashMap, convert::TryFrom, fmt, time::Duration};
 use http::{header::AUTHORIZATION, Method};
 use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
-#[cfg(feature = "multipart")]
-use reqwest::multipart;
+#[cfg(feature = "multipart")] 
 use reqwest::{
-    header::HeaderMap, header::HeaderName, header::HeaderValue, Body, Client as RequwestClient,
-    IntoUrl, RequestBuilder as ReqwestRequestBuilder, Response,
+    header::HeaderMap, header::HeaderName, header::HeaderValue,
+    IntoUrl,
 };
+
+#[cfg(feature = "blocking")]
+use reqwest::blocking::{
+    RequestBuilder as ReqwestRequestBuilder, Response,
+    Client as ReqwestClient, Body
+};
+
+#[cfg(not(feature = "blocking"))]
+use reqwest::{
+    RequestBuilder as ReqwestRequestBuilder, Response,
+    Client as ReqwestClient, Body
+};
+
+#[cfg(all(feature = "multipart", feature = "blocking"))]
+use reqwest::blocking::multipart;
+
+#[cfg(all(not(feature = "blocking"), feature = "multipart"))]
+use reqwest::multipart;
+
 use serde::Serialize;
 use url::Url;
 
@@ -82,12 +100,25 @@ where
     // Finish building the request and send it to server with OAuth signature
 
     /// Constructs the Request and sends it to the target URL, returning a
+    /// Response.
+    ///
+    /// # Errors
+    ///
+    /// This method fails if there was an error while sending request,
+    /// redirect loop was detected or redirect limit was exhausted.
+    #[cfg(feature = "blocking")]
+    pub fn send(self) -> Result<Response, Error> {
+        Ok(self.generate_signature()?.send()?)
+    }
+    
+    /// Constructs the Request and sends it to the target URL, returning a
     /// future Response.
     ///
     /// # Errors
     ///
     /// This method fails if there was an error while sending request,
     /// redirect loop was detected or redirect limit was exhausted.
+    #[cfg(not(feature = "blocking"))]
     pub async fn send(self) -> Result<Response, Error> {
         Ok(self.generate_signature()?.send().await?)
     }
@@ -132,7 +163,7 @@ where
     TSigner: Clone,
 {
     pub(crate) fn new<T: IntoUrl + Clone>(
-        client: &RequwestClient,
+        client: &ReqwestClient,
         method: Method,
         url: T,
         signer: TSigner,
@@ -450,6 +481,18 @@ fn steal_oauth_params_core(
 mod tests {
     use http::header::AUTHORIZATION;
 
+    #[cfg(feature = "blocking")]
+    use reqwest::blocking::{
+        RequestBuilder as ReqwestRequestBuilder, Response,
+        Client as RequwestClient, 
+    };
+
+    #[cfg(not(feature = "blocking"))]
+    use reqwest::{
+        RequestBuilder as ReqwestRequestBuilder, Response,
+        Client as RequwestClient,
+    };
+
     use crate::{
         OAuthClientProvider, OAuthParameters, Secrets, OAUTH_NONCE_KEY, OAUTH_TIMESTAMP_KEY,
     };
@@ -471,7 +514,7 @@ mod tests {
 
     #[test]
     fn call_multiple_queries() {
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .get("https://example.com")
             .query(&[("a", "b")])
             .query(&[("c", "d")])
@@ -483,7 +526,7 @@ mod tests {
 
     #[test]
     fn call_multiple_forms() {
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .post("https://example.com")
             .query(&[("this is", "query")])
             .form(&[("a", "b")]) // this will be ignored
@@ -512,7 +555,7 @@ mod tests {
             .callback("http://printer.example.com/ready")
             .realm("photos");
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[("少女", "終末旅行"), ("oauth_should_be_ignored", "true")]);
@@ -540,7 +583,7 @@ mod tests {
             .callback("http://printer.example.com/ready")
             .realm("photos");
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .generate_signature()
@@ -570,7 +613,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .get(endpoint);
         let query = req.url.unwrap().query().unwrap().to_string();
@@ -596,7 +639,7 @@ mod tests {
             .realm("Photos");
         // .version(true);
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .get(endpoint)
             .generate_signature()
@@ -630,7 +673,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         // .version(true);
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1(secrets)
             .get(endpoint)
             .query(&[
@@ -667,7 +710,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
@@ -703,7 +746,7 @@ mod tests {
             .timestamp(timestamp)
             .version(true);
 
-        let req = reqwest::Client::new()
+        let req = RequwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
@@ -723,6 +766,7 @@ mod tests {
         assert_eq!(
             extract_signature(sign.unwrap().to_str().unwrap()),
             "hCtSmYh+iHYCEqBWrE7C7hYmtUk="
-        );
+        ); 
     }
 }
+ 

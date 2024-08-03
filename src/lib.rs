@@ -118,7 +118,10 @@ mod error;
 mod request;
 mod secrets;
 mod signer;
+
+#[cfg(not(feature = "blocking"))]
 mod token_reader;
+
 // #[cfg(test)]
 // mod usage_test;
 
@@ -128,6 +131,8 @@ pub use error::{Error, Result, SignResult, SignerError, TokenReaderError, TokenR
 pub use request::RequestBuilder;
 pub use secrets::{Secrets, SecretsProvider};
 pub use signer::{OAuthParameters, Signer};
+
+#[cfg(not(feature = "blocking"))]
 pub use token_reader::{TokenReader, TokenReaderFuture, TokenResponse};
 
 // exposed constant variables
