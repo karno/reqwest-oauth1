@@ -126,7 +126,7 @@ mod token_reader;
 // mod usage_test;
 
 // exposed to external program
-pub use client::{Client, OAuthClientProvider};
+pub use client::{Client, DefaultSM, OAuthClientProvider};
 pub use error::{Error, Result, SignResult, SignerError, TokenReaderError, TokenReaderResult};
 pub use request::RequestBuilder;
 pub use secrets::{Secrets, SecretsProvider};

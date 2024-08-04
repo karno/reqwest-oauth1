@@ -4,7 +4,7 @@
 // please visit their repository: https://github.com/seanmonstar/reqwest .
 // ----------------------------------------------------------------------------
 
-use oauth1_request::signature_method::HmacSha1 as DefaultSM;
+pub use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
 use reqwest::{IntoUrl, Method};
 
