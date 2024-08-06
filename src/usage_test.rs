@@ -35,7 +35,7 @@ async fn usage_test() {
 
     // sample: request access token to twitter
 
-    // step 1: acquire request token & token secret (this won't work with blocking enabled)
+    // step 1: acquire request token & token secret
     let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
     let client = ReqwestClient::new();
@@ -90,7 +90,7 @@ fn usage_test() {
 
     // sample: request access token to twitter
 
-    // step 1: acquire request token & token secret (this won't work with blocking enabled)
+    // step 1: acquire request token & token secret
     let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
     let client = ReqwestClient::new();
