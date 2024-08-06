@@ -483,13 +483,13 @@ mod tests {
     #[cfg(feature = "blocking")]
     use reqwest::blocking::{
         RequestBuilder as ReqwestRequestBuilder, Response,
-        Client as RequwestClient, 
+        Client as ReqwestClient, 
     };
 
     #[cfg(not(feature = "blocking"))]
     use reqwest::{
         RequestBuilder as ReqwestRequestBuilder, Response,
-        Client as RequwestClient,
+        Client as ReqwestClient,
     };
 
     use crate::{
@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn call_multiple_queries() {
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .get("https://example.com")
             .query(&[("a", "b")])
             .query(&[("c", "d")])
@@ -525,7 +525,7 @@ mod tests {
 
     #[test]
     fn call_multiple_forms() {
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .post("https://example.com")
             .query(&[("this is", "query")])
             .form(&[("a", "b")]) // this will be ignored
@@ -554,7 +554,7 @@ mod tests {
             .callback("http://printer.example.com/ready")
             .realm("photos");
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[("少女", "終末旅行"), ("oauth_should_be_ignored", "true")]);
@@ -582,7 +582,7 @@ mod tests {
             .callback("http://printer.example.com/ready")
             .realm("photos");
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .generate_signature()
@@ -612,7 +612,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .get(endpoint);
         let query = req.url.unwrap().query().unwrap().to_string();
@@ -638,7 +638,7 @@ mod tests {
             .realm("Photos");
         // .version(true);
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .get(endpoint)
             .generate_signature()
@@ -672,7 +672,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         // .version(true);
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1(secrets)
             .get(endpoint)
             .query(&[
@@ -709,7 +709,7 @@ mod tests {
         let secrets = Secrets::new(c_key, c_secret).token(token, token_secret);
         let params = OAuthParameters::new().nonce(nonce).timestamp(timestamp);
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
@@ -745,7 +745,7 @@ mod tests {
             .timestamp(timestamp)
             .version(true);
 
-        let req = RequwestClient::new()
+        let req = ReqwestClient::new()
             .oauth1_with_params(secrets, params)
             .post(endpoint)
             .form(&[
