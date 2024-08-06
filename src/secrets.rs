@@ -22,6 +22,12 @@ The token and token_secret are optional.
 ```rust
 use reqwest_oauth1::OAuthClientProvider;
 
+#[cfg(feature = "blocking")]
+use reqwest::blocking::Client as Client;
+
+#[cfg(not(feature = "blocking"))]
+use reqwest::Client;
+
 let consumer_key = "[CONSUMER_KEY]";
 let consumer_secret = "[CONSUMER_SECRET]";
 
@@ -34,7 +40,7 @@ let token_secret = "[TOKEN_SECRET]";
 let secrets_with_token = secrets.token(access_token, token_secret);
 
 // use the secret
-let req = reqwest::Client::new()
+let req = Client::new()
     .oauth1(secrets_with_token)
     .post("http://example.com/");
 ```

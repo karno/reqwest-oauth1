@@ -1,16 +1,23 @@
-// use reqwest_oauth1;
+//use reqwest_oauth1;
 use reqwest;
-#[cfg(feature = "blocking")]
-use reqwest::blocking;
 
 use std::{collections::HashMap, io};
 use tokio;
+
+const CONSUMER_KEY: &str = "[CONSUMER_KEY]";
+const CONSUMER_SECRET: &str = "[CONSUMER_SECRET]";
+
+#[cfg(feature = "blocking")]
+use reqwest::blocking::Client as ReqwestClient;
 
 #[cfg(not(feature = "blocking"))]
 use crate::{OAuthClientProvider, Secrets, TokenReaderFuture};
 
 #[cfg(feature = "blocking")]
-use crate::{OAuthClientProvider, Secrets};
+use crate::{OAuthClientProvider, Secrets, TokenReaderBlocking};
+
+#[cfg(not(feature = "blocking"))]
+use reqwest::Client as ReqwestClient;
 
 #[test]
 fn map_test() {
@@ -20,21 +27,18 @@ fn map_test() {
 }
 
 #[cfg(not(feature = "blocking"))]
-#[test]
 #[tokio::test]
 async fn usage_test() {
     // prepare authorization info
-    let consumer_key = "[CONSUMER_KEY]";
-    let consumer_secret = "[CONSUMER_SECRET]";
 
-    let secrets = Secrets::new(consumer_key, consumer_secret);
+    let secrets = Secrets::new(CONSUMER_KEY, CONSUMER_SECRET);
 
     // sample: request access token to twitter
 
-    // step 1: acquire request token & token secret
+    // step 1: acquire request token & token secret (this won't work with blocking enabled)
     let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
-    let client = reqwest::Client::new();
+    let client = ReqwestClient::new();
     let resp = client
         .oauth1(secrets)
         .post(endpoint_reqtoken)
@@ -57,11 +61,11 @@ async fn usage_test() {
     let pin = user_input.trim();
 
     // step 3. acquire access token
-    let secrets = Secrets::new(consumer_key, consumer_secret)
+    let secrets = Secrets::new(CONSUMER_KEY, CONSUMER_SECRET)
         .token(resp.oauth_token, resp.oauth_token_secret);
     let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
-    let client = reqwest::Client::new();
+    let client = ReqwestClient::new();
     let resp = client
         .oauth1(secrets)
         .post(endpoint_acctoken)
@@ -79,19 +83,17 @@ async fn usage_test() {
 
 #[cfg(feature = "blocking")]
 #[test]
-async fn usage_test_sync() {
+fn usage_test() {
     // prepare authorization info
-    let consumer_key = "[CONSUMER_KEY]";
-    let consumer_secret = "[CONSUMER_SECRET]";
 
-    let secrets = Secrets::new(consumer_key, consumer_secret);
+    let secrets = Secrets::new(CONSUMER_KEY, CONSUMER_SECRET);
 
     // sample: request access token to twitter
 
-    // step 1: acquire request token & token secret
+    // step 1: acquire request token & token secret (this won't work with blocking enabled)
     let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
-    let client = reqwest::blocking::Client::new();
+    let client = ReqwestClient::new();
     let resp = client
         .oauth1(secrets)
         .post(endpoint_reqtoken)
@@ -113,11 +115,11 @@ async fn usage_test_sync() {
     let pin = user_input.trim();
 
     // step 3. acquire access token
-    let secrets = Secrets::new(consumer_key, consumer_secret)
+    let secrets = Secrets::new(CONSUMER_KEY, CONSUMER_SECRET)
         .token(resp.oauth_token, resp.oauth_token_secret);
     let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
-    let client = reqwest::blocking::Client::new();
+    let client = ReqwestClient::new();
     let resp = client
         .oauth1(secrets)
         .post(endpoint_acctoken)
