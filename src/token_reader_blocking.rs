@@ -1,7 +1,6 @@
-use std::{collections::HashMap, future::Future};
+use std::collections::HashMap;
 
-use async_trait::async_trait;
-use reqwest::Response;
+use reqwest::blocking::Response;
 use serde::Deserialize;
 
 use crate::{Error, Result, TokenReaderError, TokenReaderResult};
@@ -23,56 +22,37 @@ pub struct TokenResponse {
 }
 
 /// Add parse_oauth_token feature to reqwest::Response.
-// this trait is sealed
-#[async_trait(?Send)]
 pub trait TokenReader: private::Sealed {
-    async fn parse_oauth_token(self) -> Result<TokenResponse>;
+    fn parse_oauth_token(self) -> Result<TokenResponse>;
 }
 
-#[async_trait(?Send)]
 impl TokenReader for Response {
-    async fn parse_oauth_token(self) -> Result<TokenResponse> {
-        let text = self.text().await?;
+    fn parse_oauth_token(self) -> Result<TokenResponse> {
+        let text = self.text();
         // let text = self.error_for_status()?.text().await?;
         // println!("{:#?}", text);
-        Ok(read_oauth_token(text)?)
+        Ok(read_oauth_token(text?)?)
     }
 }
 
 /// Add parse_oauth_token feature to Future of reqwest::Response.
-// this trait is also sealed
-#[async_trait(?Send)]
-pub trait TokenReaderFuture: private::SealedWrapper {
-    async fn parse_oauth_token(self) -> Result<TokenResponse>;
+pub trait TokenReaderBlocking: private::SealedWrapper {
+    fn parse_oauth_token(self) -> Result<TokenResponse>;
 }
 
-/*
-#[async_trait(?Send)]
-impl<T> TokenReaderWrapper for T
+impl<E> TokenReaderBlocking for std::result::Result<Response, E>
 where
-    T: Future<Output = std::result::Result<Response, reqwest::Error>>,
+    E: Into<Error>,
 {
-    async fn parse_oauth_token(self) -> Result<TokenResponse> {
-        self.await?.parse_oauth_token().await
-    }
-}
-*/
-
-#[async_trait(?Send)]
-impl<T, E> TokenReaderFuture for T
-where
-    T: Future<Output = std::result::Result<Response, E>>,
-    E: Into<Error> + 'static,
-{
-    async fn parse_oauth_token(self) -> Result<TokenResponse> {
-        match self.await {
-            Ok(resp) => Ok(resp.parse_oauth_token().await?),
+    fn parse_oauth_token(self) -> Result<TokenResponse> {
+        match self {
+            Ok(resp) => resp.parse_oauth_token(),
             Err(err) => Err(err.into()),
         }
     }
 }
 
-fn read_oauth_token(text: String) -> TokenReaderResult<TokenResponse> { 
+fn read_oauth_token(text: String) -> TokenReaderResult<TokenResponse> {
     let mut destructured = text
         .split("&")
         .map(|e| e.splitn(2, "="))
@@ -101,9 +81,7 @@ fn read_oauth_token(text: String) -> TokenReaderResult<TokenResponse> {
 }
 
 mod private {
-    use std::future::Future;
-
-    use reqwest::Response;
+    use reqwest::blocking::Response;
 
     use crate::Error;
 
@@ -111,12 +89,7 @@ mod private {
     impl Sealed for Response {}
     pub trait SealedWrapper {}
     // impl<T> SealedWrapper for T where T: Future<Output = reqwest::Result<Response>> {}
-    impl<T, E> SealedWrapper for T
-    where
-        T: Future<Output = Result<Response, E>>,
-        E: Into<Error>,
-    {
-    }
+    impl<E> SealedWrapper for std::result::Result<Response, E> where E: Into<Error> {}
 }
 
 #[cfg(test)]

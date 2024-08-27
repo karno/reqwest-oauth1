@@ -10,11 +10,11 @@ readme = "README.md"
 keywords = ["oauth", "reqwest", "request", "http"]
 categories = ["web-programming::http-client", "authentication"]
 
-
 [features]
 default = ["multipart"]
 multipart = ["reqwest/multipart"]
 json = ["reqwest/json"]
+blocking = ["reqwest/blocking"]
 
 [dependencies]
 http = "0.2.1"

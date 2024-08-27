@@ -4,9 +4,15 @@
 // please visit their repository: https://github.com/seanmonstar/reqwest .
 // ----------------------------------------------------------------------------
 
-use oauth1_request::signature_method::HmacSha1 as DefaultSM;
+pub use oauth1_request::signature_method::HmacSha1 as DefaultSM;
 use oauth1_request::signature_method::SignatureMethod;
-use reqwest::{Client as ReqwestClient, IntoUrl, Method};
+use reqwest::{IntoUrl, Method};
+
+#[cfg(feature = "blocking")]
+use reqwest::blocking::Client as ReqwestClient;
+
+#[cfg(not(feature = "blocking"))]
+use reqwest::Client as ReqwestClient;
 
 use crate::{OAuthParameters, RequestBuilder, SecretsProvider, Signer};
 

@@ -14,8 +14,18 @@ crate by providing the thin (partial-)compatible interface layer built with [oau
 
 ```rust
 use reqwest;
+
+#[cfg(feature = "blocking")]
+use reqwest::blocking::multipart;
+#[cfg(feature = "blocking")]
+use reqwest::blocking::Client;
+
+#[cfg(not(feature = "blocking"))]
 use reqwest::multipart;
-use reqwest_oauth1::OAuthClientProvider;
+#[cfg(not(feature = "blocking"))]
+use reqwest::Client;
+
+use reqwest_oauth1::*;
 
 // prepare authorization info
 let consumer_key = "[CONSUMER_KEY]";
@@ -32,7 +42,7 @@ let endpoint = "https://api.twitter.com/1.1/statuses/update.json";
 let content = multipart::Form::new()
     .text("status", "Hello, Twitter!");
 
-let client = reqwest::Client::new();
+let client = Client::new();
 let resp = client
     // enable OAuth1 request
     .oauth1(secrets)
@@ -49,6 +59,12 @@ use reqwest;
 use reqwest_oauth1::{OAuthClientProvider, TokenReaderFuture};
 
 async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
+    #[cfg(feature = "blocking")]
+    use reqwest::blocking::Client as Client;
+
+    #[cfg(not(feature = "blocking"))]
+    use reqwest::Client;
+
     // prepare authorization info
     let consumer_key = "[CONSUMER_KEY]";
     let consumer_secret = "[CONSUMER_SECRET]";
@@ -60,7 +76,9 @@ async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
     // step 1: acquire request token & token secret
     let endpoint_reqtoken = "https://api.twitter.com/oauth/request_token";
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
+
+    #[cfg(not(feature = "blocking"))]
     let resp = client
         .oauth1(secrets)
         .get(endpoint_reqtoken)
@@ -69,15 +87,35 @@ async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
         .parse_oauth_token()
         .await?;
 
+    #[cfg(feature = "blocking")]
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_reqtoken)
+        .query(&[("oauth_callback", "oob")])
+        .send()
+        .parse_oauth_token()?;
     /*
     or
 
+    #[cfg(not(feature = "blocking"))]
     let resp = client
         .oauth1(secrets)
         .get(endpoint_reqtoken)
         .query(&[("oauth_callback", "oob")])
         .send()
         .await?;
+
+    #[cfg(feature = "blocking")]
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_reqtoken)
+        .query(&[("oauth_callback", "oob")])
+        .send()?;
+
+    #[cfg(not(feature = "blocking"))]
+    let resp = serde_urlencoded::from_str::<reqwest_oauth1::TokenResponse>(resp.text().as_str()).unwrap();
+
+    #[cfg(feature = "blocking")]
     let resp = serde_urlencoded::from_str::<reqwest_oauth1::TokenResponse>(resp.text().await?.as_str()).unwrap();
     */
 
@@ -96,7 +134,9 @@ async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
             .token(resp.oauth_token, resp.oauth_token_secret);
     let endpoint_acctoken = "https://api.twitter.com/oauth/access_token";
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
+
+    #[cfg(not(feature = "blocking"))]
     let resp = client
         .oauth1(secrets)
         .get(endpoint_acctoken)
@@ -104,6 +144,15 @@ async fn acquire_twitter_key() -> Result<(), reqwest_oauth1::Error> {
         .send()
         .parse_oauth_token()
         .await?;
+
+    #[cfg(feature = "blocking")]
+    let resp = client
+        .oauth1(secrets)
+        .get(endpoint_acctoken)
+        .query(&[("oauth_verifier", pin)])
+        .send()
+        .parse_oauth_token()?;
+
     println!(
         "your token and secret is: \n token: {}\n secret: {}",
         resp.oauth_token, resp.oauth_token_secret
@@ -118,17 +167,30 @@ mod error;
 mod request;
 mod secrets;
 mod signer;
+
+#[cfg(not(feature = "blocking"))]
 mod token_reader;
-// #[cfg(test)]
-// mod usage_test;
+
+#[cfg(feature = "blocking")]
+mod token_reader_blocking;
+
+//#[cfg(test)]
+//mod usage_test;
 
 // exposed to external program
-pub use client::{Client, OAuthClientProvider};
+pub use client::{Client, DefaultSM, OAuthClientProvider};
 pub use error::{Error, Result, SignResult, SignerError, TokenReaderError, TokenReaderResult};
 pub use request::RequestBuilder;
 pub use secrets::{Secrets, SecretsProvider};
 pub use signer::{OAuthParameters, Signer};
+
+#[cfg(not(feature = "blocking"))]
 pub use token_reader::{TokenReader, TokenReaderFuture, TokenResponse};
+
+#[cfg(feature = "blocking")]
+pub use token_reader_blocking::{
+    TokenReader, TokenReaderBlocking as TokenReaderFuture, TokenResponse,
+};
 
 // exposed constant variables
 /// Represents `oauth_callback`.
