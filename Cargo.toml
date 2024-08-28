@@ -17,9 +17,9 @@ json = ["reqwest/json"]
 blocking = ["reqwest/blocking"]
 
 [dependencies]
-http = "0.2.1"
+http = "1.1.0"
 oauth1-request = "0.3.3"
-reqwest = { version = "0.11.10", default-features = false }
+reqwest = { version = "0.12.7", default-features = false }
 serde = { version = "1.0.116", features = ["derive"] }
 serde_urlencoded = "0.7.0"
 url = "2.2.0"
